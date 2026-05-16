@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZTIF · Zero Trust Intent Framework · Industry Alignment Report</title>
+<style>
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:     #1B2A4A;
+  --teal:     #0D7377;
+  --teal2:    #14BFBF;
+  --slate:    #3D5A80;
+  --silver:   #E8EDF3;
+  --light:    #F4F6F9;
+  --mid:      #C5CDD9;
+  --text:     #1C2333;
+  --muted:    #4A5568;
+  --subtle:   #718096;
+  --white:    #FFFFFF;
+  --ok:       #1A7A4A;
+  --okbg:     #E8F5EE;
+  --warn:     #854F0B;
+  --warnbg:   #FAEEDA;
+  --err:      #A32D2D;
+  --errbg:    #FCEBEB;
+  --infobg:   #E1F5EE;
+  --bluebg:   #E6F1FB;
+  --blue:     #185FA5;
+  --sidebar:  248px;
+  --header:   52px;
+  --mono:     'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  --sans:     -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --radius:   6px;
+  --g1bg: #E6F1FB; --g1tx: #185FA5;
+  --g2bg: #E1F5EE; --g2tx: #0F6E56;
+  --g3bg: #FEF3DC; --g3tx: #7C4A00;
+  --g4bg: #F1EFE8; --g4tx: #5F5E5A;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--light);
+  overflow-x: hidden;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--header);
+  background: var(--navy);
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 20px;
+  z-index: 200;
+  border-bottom: 2px solid var(--teal);
+}
+#topbar .logo {
+  font-size: 12px; font-weight: 700; letter-spacing: .12em;
+  color: var(--teal2); text-transform: uppercase;
+}
+#topbar .title { font-size: 13px; color: rgba(255,255,255,.75); font-weight: 400; }
+#topbar .sep { color: rgba(255,255,255,.2); }
+#topbar .badge {
+  margin-left: auto;
+  font-size: 10px; font-weight: 600; letter-spacing: .08em;
+  background: var(--teal); color: #fff;
+  padding: 3px 9px; border-radius: 20px; text-transform: uppercase;
+}
+#search-wrap { margin-left: 16px; display: flex; align-items: center; }
+#search {
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
+  border-radius: var(--radius); padding: 5px 10px 5px 28px;
+  color: #fff; font-size: 12px; width: 180px; outline: none;
+}
+#search::placeholder { color: rgba(255,255,255,.4); }
+.search-icon { position: absolute; left: 8px; color: rgba(255,255,255,.4); font-size: 13px; pointer-events: none; }
+#search-wrap { position: relative; }
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+#shell { display: flex; padding-top: var(--header); min-height: 100vh; }
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  background: var(--white);
+  border-right: 1px solid var(--silver);
+  position: fixed;
+  top: var(--header);
+  left: 0;
+  bottom: 0;
+  overflow-y: auto;
+  padding: 16px 0 40px;
+  z-index: 100;
+}
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--mid); border-radius: 4px; }
+.nav-group { margin-bottom: 4px; }
+.nav-group-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--subtle);
+  padding: 12px 18px 5px;
+}
+.nav-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 18px; font-size: 12.5px; color: var(--muted);
+  cursor: pointer; border-left: 2px solid transparent;
+  transition: all .13s; text-decoration: none; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.nav-link:hover { color: var(--text); background: var(--light); }
+.nav-link.active { color: var(--teal); border-left-color: var(--teal); background: var(--infobg); font-weight: 500; }
+.nav-link .nav-num {
+  font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  background: var(--silver); color: var(--subtle);
+  min-width: 16px; height: 16px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.nav-link.active .nav-num { background: var(--teal); color: #fff; }
+
+/* ── Main content ─────────────────────────────────────────────────────────── */
+#main {
+  margin-left: var(--sidebar);
+  flex: 1;
+  padding: 40px 48px 80px;
+  max-width: 900px;
+  min-width: 0;
+}
+.section { display: none; animation: fadeIn .18s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: flex-start; gap: 14px;
+  margin-bottom: 28px; padding-bottom: 20px;
+  border-bottom: 1px solid var(--silver);
+}
+.section-num {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  background: var(--navy); color: var(--teal2);
+  padding: 4px 8px; border-radius: 4px; margin-top: 4px; flex-shrink: 0;
+}
+.section-header h1 { font-size: 24px; font-weight: 700; color: var(--navy); line-height: 1.25; }
+.section-header .subtitle { font-size: 13px; color: var(--subtle); margin-top: 4px; }
+h2 {
+  font-size: 16px; font-weight: 600; color: var(--navy);
+  margin: 32px 0 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+h2::before { content: ''; display: block; width: 3px; height: 16px; background: var(--teal); border-radius: 2px; flex-shrink: 0; }
+h3 { font-size: 13px; font-weight: 600; color: var(--slate); margin: 20px 0 8px; }
+p { color: var(--muted); font-size: 13.5px; line-height: 1.7; margin-bottom: 12px; }
+p:last-child { margin-bottom: 0; }
+strong { color: var(--text); font-weight: 600; }
+code {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--silver); color: var(--navy);
+  padding: 1px 5px; border-radius: 3px;
+}
+ul, ol { padding-left: 0; margin: 12px 0 16px; }
+li {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 5px 0; font-size: 13px; color: var(--muted); line-height: 1.6;
+}
+li::before {
+  content: '▸'; color: var(--teal); font-size: 10px;
+  margin-top: 4px; flex-shrink: 0;
+}
+ol { counter-reset: li-count; }
+ol li::before {
+  content: counter(li-count); counter-increment: li-count;
+  background: var(--navy); color: var(--teal2);
+  font-size: 9px; font-weight: 700;
+  min-width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 2px; flex-shrink: 0;
+}
+
+/* ── Code blocks ──────────────────────────────────────────────────────────── */
+.code-block {
+  border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--silver); margin: 14px 0 20px;
+}
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--navy); padding: 8px 14px;
+}
+.code-lang {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--teal2);
+}
+.copy-btn {
+  font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.6); border-radius: 3px; padding: 3px 9px;
+  cursor: pointer; transition: all .13s; display: flex; align-items: center; gap: 5px;
+}
+.copy-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+.copy-btn.copied { background: var(--ok); border-color: var(--ok); color: #fff; }
+pre {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+  background: #0F1923; color: #CDD9E5;
+  padding: 16px 18px; overflow-x: auto; tab-size: 2;
+}
+.tok-kw   { color: #79B8FF; }
+.tok-str  { color: #9ECBFF; }
+.tok-cm   { color: #6A737D; font-style: italic; }
+.tok-fn   { color: #B392F0; }
+.tok-num  { color: #F8C555; }
+.tok-dec  { color: #FFAB70; }
+.tok-op   { color: #F97583; }
+.tok-cls  { color: #85E89D; }
+
+/* ── Callouts ─────────────────────────────────────────────────────────────── */
+.callout {
+  display: flex; gap: 0; margin: 16px 0;
+  border-radius: var(--radius); overflow: hidden;
+  border: 1px solid;
+}
+.callout-label {
+  padding: 14px 12px; writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px;
+}
+.callout-body { padding: 14px 16px; font-size: 13px; line-height: 1.65; flex: 1; }
+.callout-body strong { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: .02em; }
+.callout-info  { border-color: var(--teal);  }
+.callout-info  .callout-label { background: var(--teal);  color: #fff; }
+.callout-info  .callout-body  { background: var(--infobg); color: var(--text); }
+.callout-warn  { border-color: #D4A017; }
+.callout-warn  .callout-label { background: #D4A017; color: #fff; }
+.callout-warn  .callout-body  { background: var(--warnbg); color: var(--text); }
+.callout-err   { border-color: #C0392B; }
+.callout-err   .callout-label { background: #C0392B; color: #fff; }
+.callout-err   .callout-body  { background: var(--errbg); color: var(--text); }
+.callout-ok    { border-color: var(--ok); }
+.callout-ok    .callout-label { background: var(--ok); color: #fff; }
+.callout-ok    .callout-body  { background: var(--okbg); color: var(--text); }
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 13px; }
+.data-table th {
+  text-align: left; padding: 9px 12px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: #fff;
+  background: var(--navy); border: none;
+}
+.data-table th:first-child { border-radius: 6px 0 0 0; }
+.data-table th:last-child  { border-radius: 0 6px 0 0; }
+.data-table td {
+  padding: 9px 12px; border-bottom: 1px solid var(--silver);
+  vertical-align: top; color: var(--muted);
+}
+.data-table tr:nth-child(even) td { background: var(--light); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table td:first-child { font-family: var(--mono); font-size: 11.5px; color: var(--navy); }
+.badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px; letter-spacing: .04em;
+}
+.badge-ok   { background: var(--okbg);   color: var(--ok);  }
+.badge-warn { background: var(--warnbg); color: var(--warn); }
+.badge-err  { background: var(--errbg);  color: var(--err);  }
+.badge-info { background: var(--bluebg); color: var(--blue); }
+.badge-gray { background: var(--silver); color: var(--muted); }
+
+/* ── Pipeline diagram ─────────────────────────────────────────────────────── */
+#pipeline-diagram {
+  background: var(--white); border: 1px solid var(--silver);
+  border-radius: 10px; padding: 28px; margin: 20px 0;
+}
+.pipe-flow {
+  display: flex; align-items: center; gap: 0; margin-bottom: 28px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+.pipe-node {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; flex-shrink: 0;
+}
+.pipe-box {
+  padding: 8px 14px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-align: center; cursor: pointer;
+  transition: transform .13s, box-shadow .13s; border: 2px solid;
+  min-width: 90px;
+}
+.pipe-box:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.pipe-box.active { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+.pipe-sub { font-size: 9.5px; color: var(--subtle); text-align: center; }
+.pipe-arrow {
+  width: 36px; height: 2px; background: var(--mid); flex-shrink: 0;
+  position: relative; margin: 0 -1px;
+}
+.pipe-arrow::after {
+  content: ''; position: absolute; right: -5px; top: -4px;
+  border: 5px solid transparent; border-left: 6px solid var(--mid);
+}
+.g1 { background: var(--g1bg); border-color: #B5D4F4; color: var(--g1tx); }
+.g2 { background: var(--g2bg); border-color: #9FE1CB; color: var(--g2tx); }
+.g3 { background: var(--g3bg); border-color: #FAC775; color: var(--g3tx); }
+.g4 { background: var(--g4bg); border-color: #D3D1C7; color: var(--g4tx); }
+.g-accept { background: var(--okbg); border-color: #C0DD97; color: var(--ok); }
+.g-input  { background: var(--silver); border-color: var(--mid); color: var(--muted); }
+
+.gate-cards { display: flex; flex-direction: column; gap: 10px; }
+.gate-card {
+  border-radius: var(--radius); border: 1px solid var(--silver);
+  overflow: hidden; transition: box-shadow .13s;
+}
+.gate-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+.gate-card-header {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  cursor: pointer;
+}
+.gate-badge {
+  font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 4px; flex-shrink: 0;
+}
+.gate-card-title { font-size: 13px; font-weight: 600; color: var(--navy); flex: 1; }
+.gate-card-fail  { font-size: 11px; color: var(--subtle); font-family: var(--mono); }
+.gate-card-body  { padding: 0 16px 14px 16px; font-size: 13px; color: var(--muted); line-height: 1.65; display: none; border-top: 1px solid var(--silver); padding-top: 12px; }
+.gate-card.open .gate-card-body { display: block; }
+.gate-toggle { color: var(--subtle); font-size: 16px; transition: transform .15s; flex-shrink: 0; }
+.gate-card.open .gate-toggle { transform: rotate(90deg); }
+
+/* ── Provider cost cards ─────────────────────────────────────────────────── */
+.provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 12px; margin: 14px 0 20px; }
+.provider-card {
+  border: 1px solid var(--silver); border-radius: 8px; padding: 14px;
+  background: var(--white); transition: box-shadow .13s;
+}
+.provider-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+.provider-card.baseline { border-color: var(--teal); border-width: 2px; }
+.prov-name { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.prov-model { font-family: var(--mono); font-size: 10.5px; color: var(--subtle); margin-bottom: 10px; }
+.prov-prices { display: flex; gap: 12px; margin-bottom: 8px; }
+.prov-price-item { flex: 1; }
+.prov-price-label { font-size: 9.5px; color: var(--subtle); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.prov-price-val { font-size: 16px; font-weight: 700; color: var(--navy); }
+.prov-price-unit { font-size: 9px; color: var(--subtle); }
+.prov-delta { font-size: 11px; font-weight: 600; color: var(--ok); }
+.prov-sdk { font-size: 10px; color: var(--subtle); display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+.prov-warn { font-size: 10px; color: var(--err); margin-top: 4px; font-weight: 500; }
+.prov-highlight { font-size: 10px; color: var(--ok); margin-top: 4px; font-weight: 500; }
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--mid); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--subtle); }
+
+/* ── Misc ─────────────────────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--silver); margin: 28px 0; }
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 20px; }
+.tag { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 10px; letter-spacing: .04em; }
+
+/* ── Print ─────────────────────────────────────────────────────────────────── */
+@media print {
+  #topbar, #sidebar { display: none; }
+  #main { margin: 0; padding: 20px; max-width: 100%; }
+  .section { display: block !important; page-break-before: always; }
+  .section:first-child { page-break-before: auto; }
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">Chris Gillham</div>
+  <span class="sep">·</span>
+  <div class="title">Zero Trust Intent Framework &nbsp;·&nbsp; Industry Alignment Report</div>
+  <div id="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input id="search" type="text" placeholder="Search report…" autocomplete="off">
+  </div>
+  <div class="badge">May 2026</div>
+</div>
+
+<div id="shell">
+  <nav id="sidebar">
+    <div class="nav-group">
+      <div class="nav-group-label">Executive Analysis</div>
+      <a class="nav-link active" data-target="intro"><span class="nav-num">00</span>Executive Summary</a>
+      <a class="nav-link" data-target="pipeline"><span class="nav-num">01</span>4-Gate Mapping</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Framework Design</div>
+      <a class="nav-link" data-target="thesis"><span class="nav-num">02</span>Core Thesis</a>
+      <a class="nav-link" data-target="tenets"><span class="nav-num">03</span>ZT Principles</a>
+      <a class="nav-link" data-target="semantic"><span class="nav-num">04</span>Semantic Innovation</a>
+      <a class="nav-link" data-target="contracts"><span class="nav-num">05</span>The Intent Contract</a>
+      <a class="nav-link" data-target="policy"><span class="nav-num">06</span>Policy-as-Code (OPA)</a>
+      <a class="nav-link" data-target="hitl"><span class="nav-num">07</span>HITL Quorum Routing</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Infrastructure</div>
+      <a class="nav-link" data-target="identity"><span class="nav-num">08</span>Workload Identity</a>
+      <a class="nav-link" data-target="integrity"><span class="nav-num">09</span>Runtime Integrity</a>
+      <a class="nav-link" data-target="provider"><span class="nav-num">10</span>Provider Ecosystem</a>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <div class="section active" id="s-intro">
+      <div class="section-header">
+        <div class="section-num">00</div>
+        <div>
+          <h1>Executive Summary</h1>
+          <div class="subtitle">Independent practice validated by global architectural convergence</div>
+        </div>
+      </div>
+      <div class="tag-row">
+        <span class="tag" style="background:#E1F5EE;color:#0F6E56">NIST SP 800-228</span>
+        <span class="tag" style="background:#E6F1FB;color:#185FA5">NIST SP 800-207</span>
+        <span class="tag" style="background:#FAEEDA;color:#854F0B">CSA Agentic Trust</span>
+        <span class="tag" style="background:#EEEDFE;color:#534AB7">Open Policy Agent</span>
+        <span class="tag" style="background:#F1EFE8;color:#5F5E5A">ZTIF v2.0</span>
+      </div>
+
+      <p>The <strong>Zero Trust Intent Framework (ZTIF)</strong> was developed through independent security architecture practice—drawing on NIST SP 800-207, the OWASP Input Validation standard, and practitioner experience designing enterprise security programs at scale[cite: 4, 149]. These runtime layers were not derived from the secondary industry sources or consensus publications cited in this analysis; rather, their profound structural alignment highlights a significant structural convergence[cite: 5, 6, 150].</p>
+
+      <p>Across a twelve-month period ending in May 2026, federal standards bodies, peer-reviewed research, major cloud vendors, and the Cloud Security Alliance independently arrived at structural recommendations that match—point for point—the design decisions embedded in the ZTIF framework[cite: 6]:</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0 24px">
+        <div style="border:1px solid #14BFBF;border-radius:8px;padding:16px;background:#F4F6F9">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--teal);margin-bottom:6px">CORE PIPELINE PIPES</div>
+          <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">Decoupled Structural &amp; Semantic</div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0">A layered approach separating rapid regex validation from machine-readable Intent Contracts enforced by LLM execution loops[cite: 6].</p>
+        </div>
+        <div style="border:1px solid #14BFBF;border-radius:8px;padding:16px;background:#F4F6F9">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--teal);margin-bottom:6px">GOVERNANCE &amp; TELEMETRY</div>
+          <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">Decoupled Actor-Auditor Architecture</div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0">Policy-as-code sidecars, nightly drift detection baselines, and Human-in-the-Loop quorum mechanisms for non-deterministic verdicts[cite: 6].</p>
+        </div>
+      </div>
+
+      <p>The conclusion is direct: ZTIF is not adjacent to current industry thinking[cite: 7]. It is a concrete, practitioner-built implementation of the architectural model the industry is now codifying as the required approach for securing API input in AI-integrated, zero-trust environments[cite: 8].</p>
+
+      <div class="divider"></div>
+      <h2>Administrative Metadata Reference</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Document Attribute</th><th>Value Context</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Document Type</td><td>Industry Alignment &amp; Thought Leadership Analysis [cite: 2]</td></tr>
+          <tr><td>Scope Summary</td><td>Zero Trust input validation, AI/LLM semantic guard, HITL quorum routing, policy-as-code enforcement [cite: 2]</td></tr>
+          <tr><td>Primary Sources</td><td>NIST SP 800-207, NIST SP 800-228-upd1, OWASP LLM Top 10 2025, CSA ATF, TechRxiv, Preprints, Cisco, Red Hat [cite: 2]</td></tr>
+          <tr><td>Classification</td><td>Public — suitable for thought leadership, LinkedIn, academic submission [cite: 2]</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-info">
+        <div class="callout-label">SCOPE</div>
+        <div class="callout-body"><strong>System Integration Note:</strong> This assessment systematically addresses the implementation ecosystem as a unified runtime architecture, spanning the Zero Trust Input Validation Pipeline, the AI Input Guard Model with multi-provider LLM abstractions, and the Human-in-the-Loop Quorum Framework backed by Discord orchestration interfaces[cite: 9].</div>
+      </div>
+    </div>
+
+    <div class="section" id="s-pipeline">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <div>
+          <h1>The 4-Gate Pipeline Mapping</h1>
+          <div class="subtitle">Short-circuit verification loops mapping seamlessly to industry maturity models</div>
+        </div>
+      </div>
+
+      <div id="pipeline-diagram">
+        <div class="pipe-flow">
+          <div class="pipe-node">
+            <div class="pipe-box g-input">Raw Input</div>
+            <div class="pipe-sub">API Boundary</div>
+          </div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-node">
+            <div class="pipe-box g1" id="pbox1">Gate 1</div>
+            <div class="pipe-sub">Structural</div>
+          </div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-node">
+            <div class="pipe-box g2" id="pbox2">Gate 2</div>
+            <div class="pipe-sub">ZT Context</div>
+          </div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-node">
+            <div class="pipe-box g3" id="pbox3">Gate 3</div>
+            <div class="pipe-sub">LLM Semantic</div>
+          </div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-node">
+            <div class="pipe-box g4" id="pbox4">Gate 4</div>
+            <div class="pipe-sub">Biz Logic</div>
+          </div>
+          <div class="pipe-arrow"></div>
+          <div class="pipe-node">
+            <div class="pipe-box g-accept">✓ Execution</div>
+            <div class="pipe-sub">Downstream</div>
+          </div>
+        </div>
+
+        <div class="gate-cards">
+          <div class="gate-card" id="gc1">
+            <div class="gate-card-header">
+              <div class="gate-badge" style="background:var(--g1bg);color:var(--g1tx)">GATE 1</div>
+              <div class="gate-card-title">Structural Validation &amp; Schema Checks</div>
+              <div class="gate-card-fail">CSA Tier 1 Alignment</div>
+              <div class="gate-toggle">›</div>
+            </div>
+            <div class="gate-card-body">
+              <p>Handles initial syntax verification, length limitations, normalization matrices, and deterministic pattern blocks[cite: 11]. Rejects payloads using traditional regex constraints before any high-latency computations fire[cite: 35]. Maps directly to Cloud Security Alliance (CSA) Tier 1 maturity definitions[cite: 72].</p>
+            </div>
+          </div>
+          <div class="gate-card" id="gc2">
+            <div class="gate-card-header">
+              <div class="gate-badge" style="background:var(--g2bg);color:var(--g2tx)">GATE 2</div>
+              <div class="gate-card-title">Zero Trust Context Engine (OPA Policy-as-Code)</div>
+              <div class="gate-card-fail">CSA Tier 2 Alignment</div>
+              <div class="gate-toggle">›</div>
+            </div>
+            <div class="gate-card-body">
+              <p>Evaluates principal role states, multi-factor tokens, session flags, and client posture concurrently on every payload packet[cite: 25, 101]. Eliminates perimeter trust assumptions by re-verifying every individual service-to-service call synchronously[cite: 67]. Maps to CSA Tier 2 parameters[cite: 73].</p>
+            </div>
+          </div>
+          <div class="gate-card" id="gc3">
+            <div class="gate-card-header">
+              <div class="gate-badge" style="background:var(--g3bg);color:var(--g3tx)">GATE 3</div>
+              <div class="gate-card-title">LLM Semantic Intent Validation</div>
+              <div class="gate-card-fail">CSA Tier 2-3 Alignment</div>
+              <div class="gate-toggle">›</div>
+            </div>
+            <div class="gate-card-body">
+              <p>Performs real-time content analysis, evaluating natural language intent strings against formal, versioned machine-readable Intent Contracts[cite: 17, 26]. Catches structurally valid but contextually malicious inputs[cite: 12]. Operates as an Inference Policy Enforcement Point (PEP) aligning with CSA Tier 2-3 specifications[cite: 31, 74].</p>
+            </div>
+          </div>
+          <div class="gate-card" id="gc4">
+            <div class="gate-card-header">
+              <div class="gate-badge" style="background:var(--g4bg);color:var(--g4tx)">GATE 4</div>
+              <div class="gate-card-title">Business Logic Validation &amp; Application State</div>
+              <div class="gate-card-fail">Domain Enforcement</div>
+              <div class="gate-toggle">›</div>
+            </div>
+            <div class="gate-card-body">
+              <p>Application-layer execution blocks that process sanitized, context-verified, and semantic-checked payloads safely[cite: 61]. Ensures down-circuit operations run within an environment isolated from injection vulnerabilities or prompt bypass risks[cite: 62].</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="s-thesis">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <div>
+          <h1>The Core Thesis</h1>
+          <div class="subtitle">Syntactic validation alone is obsolete against generative inputs</div>
+        </div>
+      </div>
+      
+      <p>The foundational premise of the ZTIF framework is that legacy OWASP-style structural validation—length checks, regex patterns, JSON schema enforcement—addresses only the outermost syntactic layer of input security[cite: 11]. It cannot detect inputs that are perfectly valid in format but semantically malicious[cite: 12].</p>
+
+      <div class="callout callout-err">
+        <div class="callout-label">EXAMPLE</div>
+        <div class="callout-body">
+          <strong>The Semantic Bypass Vulnerability:</strong><br>
+          A product search input field receiving an administrative bypass string such as <code>'list all user email addresses'</code> satisfies every syntactic, length, character-set, and structural pattern check[cite: 12]. To traditional firewalls, the transaction is harmless; to downstream integrated model endpoints, it is a catastrophic data extraction exploit[cite: 12].
+        </div>
+      </div>
+
+      <h2>NIST Policy Alignment</h2>
+      <p>NIST Special Publication 800-228, <em>Guidelines for API Protection for Cloud-Native Systems</em> (updated March 2026), articulates this exact structural distinction as a central organizing paradigm for next-generation systems[cite: 13]. The standard delineates an explicit two-level input security model[cite: 14]:</p>
+
+      <blockquote>
+        "While the input may satisfy 'syntactic' validation, it also needs to be verified as non-malicious before it is used. Malicious input is any input that is syntactically valid but attempts to get the system to misbehave."
+        <br><span style="color: var(--subtle); font-size: 11px;">— NIST SP 800-228-upd1, §2.3 [cite: 16]</span>
+      </blockquote>
+
+      <p>ZTIF operationalizes this exact regulatory stance directly within its multi-tier pipeline[cite: 17]. Gate 1 enforces structural hygiene, while Gate 3 uses dynamic LLM-driven verification loops to evaluate the semantic intent against declared data purpose configurations[cite: 17]. NIST SP 800-228-upd1 provides authoritative confirmation of this design split[cite: 18, 19].</p>
+    </div>
+
+    <div class="section" id="s-tenets">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <div>
+          <h1>Zero Trust Tenets Applied to Input</h1>
+          <div class="subtitle">Extending network-layer primitives to application data surfaces</div>
+        </div>
+      </div>
+      <p>NIST SP 800-207 established the canonical foundations of Zero Trust: Verify Explicitly, Least Privilege, and Assume Breach[cite: 21]. While traditionally deployed inside identity networks or routing meshes, early 2026 literature transitions these concepts directly into input validation architectures[cite: 22, 23]. ZTIF translates these tenets into runtime controls:</p>
+
+      <h2>Architectural Matrix mapping NIST SP 800-207</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Zero Trust Tenet</th><th>Industry Policy Definition</th><th>ZTIF Engine Implementation</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Verify Explicitly</strong></td>
+            <td>Re-verify identity, state, and transactional content on every individual request, regardless of existing connection persistence[cite: 25].</td>
+            <td>Gate 2 re-evaluates principal metadata, MFA validation age, session flags, and client posture concurrently on every payload packet[cite: 25]. Gate 3 independently verifies intent[cite: 25].</td>
+          </tr>
+          <tr>
+            <td><strong>Least Privilege</strong></td>
+            <td>Constrain ingest profiles to strict operational requirements. Reduce multi-stage exploitation vectors across data contexts[cite: 25].</td>
+            <td>Machine-readable Intent Contracts map explicit semantic scopes. Calls deviating from declared field intent are blocked before execution[cite: 25].</td>
+          </tr>
+          <tr>
+            <td><strong>Assume Breach</strong></td>
+            <td>Architect systems under the proactive assumption that identity layers or upstream boundaries are compromised[cite: 25].</td>
+            <td>The pipeline refuses to trust standard upstream validation tokens. Both authentication states and structural payload cleanliness are evaluated continuously[cite: 25].</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>This structural approach is supported by contemporary research, including Ando's 2026 Model Context Protocol (MCP) analysis (TechRxiv, February 2026)[cite: 24]. Ando addresses the severe vulnerability gap that separates traditional network-layer perimeters from application-layer model actions, recommending real-time workload tracking, granular role evaluation, and a dynamic intent verification layer operating directly on tools[cite: 24].</p>
+    </div>
+
+    <div class="section" id="s-semantic">
+      <div class="section-header">
+        <div class="section-num">04</div>
+        <div>
+          <h1>Semantic Intent Verification</h1>
+          <div class="subtitle">Leveraging model execution to defend model interaction boundaries</div>
+        </div>
+      </div>
+      <p>Using a separate language model process to evaluate input intent—independent of its structural format—was an advanced design choice during framework incubation[cite: 28]. In 2026, multiple international standards groups and security organizations define this as a mandatory control pattern[cite: 29].</p>
+
+      <h2>Tiered Latency &amp; Inference PEPs</h2>
+      <p>Academic research in <em>Zero Trust for AI Systems: A Reference Architecture and Assurance Framework</em> (Preprints, February 2026) outlines the concept of <strong>Inference Policy Enforcement Points (PEPs)</strong> deployed at application interfaces to manage content-level attacks, prompt engineering subversions, and direct injections[cite: 31]. The framework recommends:</p>
+
+      <blockquote>
+        "Tiered validation strategies where lightweight checks execute synchronously, and deeper analysis occurs asynchronously with compensating controls... In latency-critical contexts, organizations must explicitly balance security depth against operational tempo."
+        <br><span style="color: var(--subtle); font-size: 11px;">— Preprints, 2026 [cite: 34]</span>
+      </blockquote>
+
+      <div class="callout callout-ok">
+        <div class="callout-label">ALIGNMENT</div>
+        <div class="callout-body">
+          <strong>ZTIF Tiered Execution Implementation:</strong><br>
+          This matches the asynchronous-optimized design of the ZTIF engine. Gates 1 and 2 deliver high-speed, sub-5ms synchronous protection filters[cite: 35]. Gate 3 manages deeper semantic assessment via an isolated 800–2000ms inference verification call[cite: 36]. For latency-sensitive lower-risk contract tiers, this check fires out-of-band with automatic fallback routes to human review channels[cite: 36, 37].
+        </div>
+      </div>
+
+      <h2>Enterprise Integration Patterns</h2>
+      <p>Cisco's 2026 brief, <em>Zero Trust for Agentic AI</em>, tracks this design trajectory[cite: 39]. Their enterprise core architectures implement behavioral layers that leverage "semantic inspection to detect manipulation in real time" while evaluating transactional "intent" against safe boundary contracts[cite: 39]. Cisco emphasizes that policy enforcement must remain decoupled from the agent's code path or compliance state—a requirement met by the ZTIF framework[cite: 40, 43].</p>
+    </div>
+
+    <div class="section" id="s-contracts">
+      <div class="section-header">
+        <div class="section-num">05</div>
+        <div>
+          <h1>The Intent Contract</h1>
+          <div class="subtitle">Formalizing machine-readable interface scopes for natural language surfaces</div>
+        </div>
+      </div>
+      <p>The Intent Contract—a versioned, declarative configuration configuration artifact outlining an interaction surface's strict purpose, allowed operators, data bounds, risk levels, and associated automation test profiles—is a signature innovation of ZTIF[cite: 45]. Industry research tracks three distinct cross-functional justifications for this design[cite: 47]:</p>
+
+      <h2>Convergence Vector Analysis</h2>
+      <ol>
+        <li>
+          <strong>Annotated API Definitions (NIST SP 800-228):</strong> 
+          Federal security guidance explicitly requests that cloud APIs use specifications that document field-level semantic intent, specific validation rules, trust profiles, and authorization depths rather than simple data types[cite: 49, 50]. The Intent Contract is the machine-readable realization of this mandate within CI systems[cite: 51].
+        </li>
+        <li>
+          <strong>Semantic Gateways and Formal Validation (arXiv / Peyrano):</strong> 
+          A key April 2026 paper, <em>From CRUD to Autonomous Agents</em>, proposes decoupled "Semantic Normalizers" to manage unstructured user objectives, treating modern AI interfaces as complex stochastic systems that require automated fuzzing in CI and deep validation matching across action trees[cite: 53, 54]. The Intent Contract serves as this formal abstraction[cite: 55].
+        </li>
+        <li>
+          <strong>Contextual Identity Binding:</strong> 
+          NIST SP 800-228 calls for strict context validation patterns to verify that the active persona sending input text is authorized to execute that specific semantic workload[cite: 59]. ZTIF meets this via the <strong>Threat Story Method</strong>—translating human threat modeling sentences directly into machine-enforced declarative contract rules[cite: 58, 60].
+        </li>
+      </ol>
+
+      <h2>YAML Contract Structure Blueprint</h2>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">yaml · SCHEMA-ALIGNMENT-SPEC.yaml</span>
+          <button class="copy-btn">⎘ Copy</button>
+        </div>
+        <pre><code><span class="tok-kw">contract_id</span>: SEARCH-PRODUCT-001
+<span class="tok-kw">version</span>: <span class="tok-str">"2.0.0"</span>
+<span class="tok-kw">status</span>: active
+
+<span class="tok-kw">intent</span>:
+  <span class="tok-kw">declared_purpose</span>: <span class="tok-op">></span>
+    Accepts natural language strings targeting product catalog records.
+    Constrained to attributes, category descriptions, and sizing contexts.
+  <span class="tok-kw">semantic_boundaries</span>:
+    - <span class="tok-str">"No execution instructions, prompt configuration terms, or system bypass attempts"</span>
+    - <span class="tok-str">"No structural code blocks, SQL syntax elements, or parameter manipulation strings"</span>
+
+<span class="tok-kw">zero_trust</span>:
+  <span class="tok-kw">allowed_principals</span>:
+    - <span class="tok-kw">role</span>: authenticated_customer
+    - <span class="tok-kw">role</span>: guest_persona
+  <span class="tok-kw">aal_required</span>: AAL1
+  <span class="tok-kw">rate_limits</span>:
+    <span class="tok-kw">requests_per_minute</span>: <span class="tok-num">30</span>
+
+<span class="tok-kw">validation_chain</span>:
+  <span class="tok-kw">owasp_checks</span>: [SQLI, XSS, COMMAND_INJECTION, PATH_TRAVERSAL]
+  <span class="tok-kw">llm_confidence_threshold</span>: <span class="tok-num">0.80</span></code></pre>
+      </div>
+    </div>
+
+    <div class="section" id="s-policy">
+      <div class="section-header">
+        <div class="section-num">06</div>
+        <div>
+          <h1>Open Policy Agent (OPA) Integration</h1>
+          <div class="subtitle">Decoupling zero trust policy evaluations from core application logic</div>
+        </div>
+      </div>
+      <p>The framework's deployment of Open Policy Agent (OPA) to power Gate 2 reflects a core architectural principle: security decisions should reside entirely outside application source files, use clean declarative syntax, and evaluate within sub-millisecond execution constraints[cite: 78].</p>
+
+      <h2>Decoupled Governance Isolation</h2>
+      <p>Red Hat's early 2026 architectural brief, <em>Zero Trust for Autonomous Agentic AI Systems</em>, highlights the failure vectors this specific isolation pattern prevents[cite: 84]. Their engineering teams point out that generative components, by design, will iteratively find creative ways to navigate around inline application filters to complete tasks, completely lacking human-like contextual judgment or policy restraint[cite: 85].</p>
+
+      <div class="callout callout-err">
+        <div class="callout-label">RULE</div>
+        <div class="callout-body">
+          <strong>The Enforcement Autonomy Imperative:</strong><br>
+          Industry consensus demands that policy enforcement loops operate in components completely isolated from the execution application or model sandbox[cite: 86]. OPA integration fulfills this within ZTIF[cite: 87]. Rego rule sets load into dedicated policy processes, utilize strict repository access locks via CODEOWNERS configuration, and evaluate via isolated execution environments that share no state or code paths with application logic[cite: 87].
+        </div>
+      </div>
+
+      <h2>Rego Policy Sample Blueprint</h2>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">rego · gate2_context_validation.rego</span>
+          <button class="copy-btn">⎘ Copy</button>
+        </div>
+        <pre><code><span class="tok-kw">package</span> zt.input_validation
+
+<span class="tok-kw">default</span> allow = <span class="tok-kw">false</span>
+
+<span class="tok-cm"># Verify principal claims against machine contract metadata</span>
+allow {
+    role_is_permitted
+    authentication_assurance_satisfied
+    rate_limit_within_bounds
+}
+
+role_is_permitted {
+    input.principal.role == input.contract.allowed_roles[_]
+}
+
+authentication_assurance_satisfied {
+    input.principal.mfa == <span class="tok-kw">true</span>
+    input.contract.aal == <span class="tok-str">"AAL2"</span>
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="section" id="s-hitl">
+      <div class="section-header">
+        <div class="section-num">07</div>
+        <div>
+          <h1>HITL Quorum Routing</h1>
+          <div class="subtitle">Managing probabilistic anomalies with deterministic multi-analyst consensus</div>
+        </div>
+      </div>
+      <p>The ZTIF Quorum Framework intercepts non-deterministic Gate 3 validation anomalies and scales them to a managed human review surface[cite: 89]. Rather than operating as a passive tracking layer, the engine introduces an active, synchronous mediation channel for edge cases that language models cannot resolve with high confidence[cite: 90].</p>
+
+      <h2>The Probabilistic Enforcement Problem</h2>
+      <p>The Preprints reference architecture (2026) isolates the core technical challenge associated with content-level semantic filtering[cite: 92]. Unlike hardcoded firewalls that inspect network packets deterministically, semantic evaluation is inherently probabilistic[cite: 93]. ZTIF meets this challenge using a structured consensus loop[cite: 89]:</p>
+
+      <div style="background-color:var(--white); border:1px solid var(--silver); padding:20px; border-radius:var(--radius); margin:15px 0;">
+        <p style="font-size:13px; font-weight:700; color:var(--navy); margin-bottom:8px;">Operational Continuity Workflow:</p>
+        <ol>
+          <li>An ambiguous, low-confidence payload trips Gate 3 filters[cite: 89].</li>
+          <li>The framework intercepts the transaction, returns an active <code>HTTP 202 Accepted</code> token down-circuit, and queues the execution state securely[cite: 96].</li>
+          <li>The payload routes to a collaborative Discord orchestration channel for active inspection[cite: 89, 99].</li>
+          <li>Analysts complete a multi-user quorum check; verified decisions update the contract's automated test suite to continuously harden model thresholds[cite: 89, 96].</li>
+        </ol>
+      </div>
+
+      <p style="margin-top: 12px;">This design matches the specifications outlined in the Cloud Security Alliance Agentic Trust Framework, which states that next-generation integrations must maintain audit logs, validate runtime telemetry, and deploy structural circuit breakers that pause runtime tasks for human adjudication[cite: 98, 99].</p>
+    </div>
+
+    <div class="section" id="s-identity">
+      <div class="section-header">
+        <div class="section-num">08</div>
+        <div>
+          <h1>Workload Identity</h1>
+          <div class="subtitle">Normalizing cryptographic identity tokens at the application data boundary</div>
+        </div>
+      </div>
+      <p>Gate 2 standardizes request parameters by pulling verified identity properties into a structural <code>Principal</code> data block[cite: 101]. This abstraction layer assesses user attributes, active roles, session life cycles, MFA verification parameters, and client device states before payloads move to semantic evaluations[cite: 101, 102].</p>
+
+      <h2>Regulatory Standards Alignment</h2>
+      <ul>
+        <li>
+          <strong>NIST SP 800-228 Identity Blueprint:</strong> 
+          Federal API guidelines advocate for identity frameworks like SPIFFE/SPIRE to embed cryptographically verifiable identity signatures directly into service transactions[cite: 104]. NIST emphasizes the importance of canonicalizing credentials at ingress gateways to eliminate the vulnerabilities created by fragmented, inconsistent authentication protocols across internal microservices[cite: 105]. ZTIF's Principal structure is designed natively to ingest these canonicalized workload fields[cite: 106].
+        </li>
+        <li>
+          <strong>Application-Layer Entity Contextualization:</strong> 
+          Ando's 2026 TechRxiv research notes that legacy network-layer perimeters are completely blind to the execution context of internal AI tools and agent actions[cite: 110]. ZTIF corrects this limitation by re-evaluating identity assertions directly at the input surface on every transaction, ensuring network auth states cannot be leveraged for data injection[cite: 111, 112].
+        </li>
+      </ul>
+
+      <h2>Principal Abstraction Model</h2>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">python · principal_canonicalization.py</span>
+          <button class="copy-btn">⎘ Copy</button>
+        </div>
+        <pre><code><span class="tok-dec">@dataclass</span>
+<span class="tok-kw">class</span> <span class="tok-cls">Principal</span>:
+    user_id: str
+    role: str                       <span class="tok-cm"># Maps directly to contract rules</span>
+    session_valid: bool = <span class="tok-kw">True</span>
+    mfa_verified: bool = <span class="tok-kw">False</span>      <span class="tok-cm"># Tracks NIST SP 800-228 AAL limits</span>
+    device_managed: bool = <span class="tok-kw">False</span>
+    network_context: str = <span class="tok-str">"internet"</span>
+    requests_per_minute: int = <span class="tok-num">0</span>   <span class="tok-cm"># Runtime rate check metrics</span></code></pre>
+      </div>
+    </div>
+
+    <div class="section" id="s-integrity">
+      <div class="section-header">
+        <div class="section-num">09</div>
+        <div>
+          <h1>Runtime Integrity Monitoring</h1>
+          <div class="subtitle">Defending non-deterministic validation models from silent upstream updates</div>
+        </div>
+      </div>
+      <p>A unique vulnerability introduced by LLM-backed security controllers is model evolution drift[cite: 119]. When third-party providers deploy backend model adjustments, the semantic evaluation logic can shift silently—altering established contract boundaries and lowering safety parameters without changing application source files[cite: 119, 120].</p>
+
+      <div class="callout callout-info">
+        <div class="callout-label">INNOVATION</div>
+        <div class="callout-body">
+          <strong>Original Contribution Analysis:</strong><br>
+          While 2026 security literature outlines the necessity of structural runtime integrity tracking at the data layer, ZTIF extends this monitoring pattern directly into the evaluation layer[cite: 117, 118]. Through an automated GitHub Actions nightly workflow, the framework tests pinned evaluation sets against active model boundaries, tracking verdict shifts[cite: 114]. If variations diverge by more than 5% from the statistical baseline, high-priority telemetry alerts trip immediately[cite: 114, 121, 122].
+        </div>
+      </div>
+
+      <p style="margin-top: 12px;">This automated validation catch prevents updates from silently introducing prompt injection vulnerabilities into production environments[cite: 120]. The system catches behavioral changes before they impact application endpoints[cite: 121].</p>
+
+      <h2>Actor-Auditor Decoupling</h2>
+      <p>This design pattern maps to federal and academic definitions requiring a decoupled actor-auditor layout[cite: 127]. To maintain framework reliability, high-risk validation processes must run in components completely separate from the core business application state—ensuring that intent validation remains isolated, standalone, and verifiable[cite: 124, 128].</p>
+    </div>
+
+    <div class="section" id="s-provider">
+      <div class="section-header">
+        <div class="section-num">10</div>
+        <div>
+          <h1>Provider Ecosystem Optimization</h1>
+          <div class="subtitle">Multi-provider abstraction supporting data sovereignty and cost engineering</div>
+        </div>
+      </div>
+      <p>The AI Input Guard architecture exposes a provider-agnostic abstraction layer, managing six distinct model endpoints via a unified completion routine[cite: 138]. By wrapping downstream engines inside an OpenAI-compatible SDK pattern, changing the active primary security model is managed via a single configuration variable swap[cite: 139].</p>
+
+      <h2>Strategic Diversity &amp; Sovereignty</h2>
+      <p>The Cloud Security Alliance highlights that monoculture dependencies within language model pipelines introduce systemic supply-chain vulnerabilities and concentration risks[cite: 142]. ZTIF's multi-provider strategy addresses this exposure directly, supporting rapid rotation capabilities alongside localized compliance routing[cite: 143].</p>
+
+      <div class="callout callout-ok">
+        <div class="callout-label">COMPLIANCE</div>
+        <div class="callout-body">
+          <strong>EU Data Sovereignty &amp; GDPR Enforcement:</strong><br>
+          The integrated Mistral Small profile supports strict data residency requirements natively[cite: 145]. When evaluating user payloads subject to European data protections, ZTIF routes semantic traffic directly to Mistral's EU infrastructure[cite: 145]. This applies Zero Trust architecture concepts directly to the data processing boundary itself[cite: 146].
+        </div>
+      </div>
+
+      <h2>Provider Architecture Matrix</h2>
+      <div class="provider-grid">
+        <div class="provider-card baseline">
+          <div class="prov-name">Claude Opus 4.6 <span class="badge badge-gray">Baseline</span></div>
+          <div class="prov-model">anthropic/claude-3.5-opus</div>
+          <div class="prov-prices">
+            <div class="prov-price-item">
+              <div class="prov-price-label">Cost / MTok</div>
+              <div class="prov-price-val">1.0&times;</div>
+            </div>
+          </div>
+          <div class="prov-sdk"><code>anthropic native</code></div>
+          <div class="prov-warn">Maximum reasoning depth; reserved for high-risk tiers[cite: 147].</div>
+        </div>
+
+        <div class="provider-card">
+          <div class="prov-name">Claude Sonnet 4.6</div>
+          <div class="prov-model">anthropic/claude-3.5-sonnet</div>
+          <div class="prov-prices">
+            <div class="prov-price-item">
+              <div class="prov-price-label">Cost Efficiency</div>
+              <div class="prov-price-val">5&times;</div>
+              <div class="prov-price-unit">cheaper [cite: 147]</div>
+            </div>
+          </div>
+          <div class="prov-sdk"><code>anthropic native</code></div>
+          <div class="prov-highlight">Default option; optimal balance between cost and speed[cite: 147].</div>
+        </div>
+
+        <div class="provider-card">
+          <div class="prov-name">Moonshot Kimi K2.6</div>
+          <div class="prov-model">kimi-k2.6-256k</div>
+          <div class="prov-prices">
+            <div class="prov-price-item">
+              <div class="prov-price-label">Cost Efficiency</div>
+              <div class="prov-price-val">25&times;</div>
+              <div class="prov-price-unit">cheaper [cite: 147]</div>
+            </div>
+          </div>
+          <div class="prov-sdk"><code>openai-compat</code></div>
+          <div class="prov-highlight">256K context window; highly cache-friendly for long structures[cite: 147].</div>
+        </div>
+
+        <div class="provider-card">
+          <div class="prov-name">Google Gemini 2.5 Flash</div>
+          <div class="prov-model">google/gemini-2.5-flash</div>
+          <div class="prov-prices">
+            <div class="prov-price-item">
+              <div class="prov-price-label">Cost Efficiency</div>
+              <div class="prov-price-val">150&times;</div>
+              <div class="prov-price-unit">cheaper [cite: 147]</div>
+            </div>
+          </div>
+          <div class="prov-sdk"><code>openai-compat</code></div>
+          <div class="prov-highlight">Extremely fast; provides up to 1M context windows[cite: 147].</div>
+        </div>
+
+        <div class="provider-card">
+          <div class="prov-name">Mistral Small</div>
+          <div class="prov-model">mistral-small-latest</div>
+          <div class="prov-prices">
+            <div class="prov-price-item">
+              <div class="prov-price-label">Cost Efficiency</div>
+              <div class="prov-price-val">250&times;</div>
+              <div class="prov-price-unit">cheaper [cite: 147]</div>
+            </div>
+          </div>
+          <div class="prov-sdk"><code>openai-compat</code></div>
+          <div class="prov-highlight">EU Data Residency; native GDPR compliance profile[cite: 145, 147].</div>
+        </div>
+
+        <div class="provider-card">
+          <div class="prov-name">DeepSeek V4 Flash</div>
+          <div class="prov-model">deepseek-v4-flash</div>
+          <div class="prov-prices">
+            <div class="prov-price-item">
+              <div class="prov-price-label">Cost Efficiency</div>
+              <div class="prov-price-val">107&times;</div>
+              <div class="prov-price-unit">cheaper [cite: 147]</div>
+            </div>
+          </div>
+          <div class="prov-sdk"><code>openai-compat</code></div>
+          <div class="prov-warn">⚠ China data residency; demands local regional checks[cite: 147].</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // Dynamic Tab Navigation
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      // Update active nav link
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      this.classList.add('active');
+      
+      // Update active content section
+      const targetId = 's-' + this.getAttribute('data-target');
+      document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+      
+      const targetSection = document.getElementById(targetId);
+      if(targetSection) {
+        targetSection.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  });
+
+  // Expandable Gate Accordion Logic
+  document.querySelectorAll('.gate-card-header').forEach(header => {
+    header.addEventListener('click', function() {
+      const card = this.parentElement;
+      card.classList.toggle('open');
+    });
+  });
+
+  // Automated Code Copying Mechanism
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const pre = this.parentElement.nextElementSibling;
+      const codeText = pre.textContent;
+      
+      navigator.clipboard.writeText(codeText).then(() => {
+        const originalText = this.innerHTML;
+        this.innerHTML = '✓ Copied';
+        this.classList.add('copied');
+        
+        setTimeout(() => {
+          this.innerHTML = originalText;
+          this.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
