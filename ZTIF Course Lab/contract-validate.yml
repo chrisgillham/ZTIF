@@ -1,0 +1,350 @@
+# =============================================================================
+# Zero Trust Intent Framework (ZTIF) — CI/CD Validation Pipeline
+# Workflow: contract-validate.yml
+# Framework: ZTIF-IC-001
+# Triggers: PR to main, push to main, nightly schedule
+# =============================================================================
+
+name: ZTIF Intent Contract Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'intent-contracts/**'
+      - 'llm-guard-prompts/**'
+      - '.github/workflows/contract-validate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'intent-contracts/**'
+      - 'llm-guard-prompts/**'
+  schedule:
+    # Nightly regression run — catches model drift on existing contracts
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      contract_id:
+        description: 'Run tests for a specific contract ID (leave blank for all)'
+        required: false
+        type: string
+      fail_on_flag:
+        description: 'Treat LLM FLAG verdicts as failures (default: warn only)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  SCHEMA_FILE: 'schemas/intent-contract-schema.yaml'
+  RESULTS_DIR: 'ci-results'
+
+jobs:
+  schema-lint:
+    name: Schema Lint
+    runs-on: ubuntu-latest
+    outputs:
+      changed_contracts: ${{ steps.detect.outputs.changed }}
+      all_contracts: ${{ steps.list.outputs.all }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install yamllint jsonschema pyyaml cerberus
+
+      - name: Detect changed contracts (PR mode)
+        id: detect
+        if: github.event_name == 'pull_request'
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep '^intent-contracts/.*\.yaml$' \
+            | grep -v '_template' \
+            | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed contracts: $CHANGED"
+
+      - name: List all contracts (push/schedule/dispatch mode)
+        id: list
+        run: |
+          ALL=$(find intent-contracts -name '*.yaml' ! -name '_template.yaml' \
+            | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "all=$ALL" >> $GITHUB_OUTPUT
+
+      - name: Validate YAML syntax (yamllint)
+        run: |
+          yamllint -c .yamllint.yml intent-contracts/ llm-guard-prompts/ || \
+          yamllint intent-contracts/ llm-guard-prompts/
+
+      - name: Validate contract schema (JSON Schema)
+        run: |
+          python scripts/validate_schema.py \
+            --schema ${{ env.SCHEMA_FILE }} \
+            --contracts-dir intent-contracts/ \
+            --strict
+
+      - name: Check required fields completeness
+        run: |
+          python scripts/check_required_fields.py \
+            --contracts-dir intent-contracts/ \
+            --report ${{ env.RESULTS_DIR }}/field-completeness.json
+
+      - name: Validate contract ID uniqueness
+        run: |
+          python scripts/check_unique_ids.py \
+            --contracts-dir intent-contracts/
+
+      - name: Check test case coverage minimums
+        run: |
+          python scripts/check_test_coverage.py \
+            --contracts-dir intent-contracts/ \
+            --min-pass 1 \
+            --min-flag 1 \
+            --min-block 1 \
+            --skip-status draft
+
+      - name: Detect semantic boundary regressions
+        if: github.event_name == 'pull_request'
+        run: |
+          python scripts/detect_boundary_regression.py \
+            --base-ref origin/${{ github.base_ref }} \
+            --changed-contracts '${{ steps.detect.outputs.changed }}'
+
+      - name: Upload lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-lint-results
+          path: ${{ env.RESULTS_DIR }}/
+
+  llm-guard-tests:
+    name: LLM Guard Tests
+    runs-on: ubuntu-latest
+    needs: schema-lint
+    if: needs.schema-lint.result == 'success'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        risk_tier: [critical, high, medium, low]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          pip install anthropic pyyaml pytest pytest-json-report rich tabulate
+
+      - name: Run LLM guard test suite — ${{ matrix.risk_tier }} tier
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RISK_TIER: ${{ matrix.risk_tier }}
+          CONTRACT_ID: ${{ inputs.contract_id }}
+          FAIL_ON_FLAG: ${{ inputs.fail_on_flag || 'false' }}
+        run: |
+          python scripts/run_guard_tests.py \
+            --contracts-dir intent-contracts/ \
+            --risk-tier $RISK_TIER \
+            --contract-id "$CONTRACT_ID" \
+            --fail-on-flag $FAIL_ON_FLAG \
+            --output ${{ env.RESULTS_DIR }}/guard-test-${{ matrix.risk_tier }}.json \
+            --retries 2 \
+            --confidence-threshold 0.75
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          python scripts/summarize_results.py \
+            --input ${{ env.RESULTS_DIR }}/guard-test-${{ matrix.risk_tier }}.json \
+            --format github_summary >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guard-test-results-${{ matrix.risk_tier }}
+          path: ${{ env.RESULTS_DIR }}/guard-test-${{ matrix.risk_tier }}.json
+
+  drift-detection:
+    name: Model Drift Detection
+    runs-on: ubuntu-latest
+    needs: schema-lint
+    if: github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install anthropic pyyaml rich
+
+      - name: Download baseline results from last successful nightly
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: contract-validate.yml
+          event: schedule
+          name: drift-baseline
+          path: drift-baseline/
+        continue-on-error: true
+
+      - name: Run drift detection
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python scripts/drift_detection.py \
+            --contracts-dir intent-contracts/ \
+            --baseline drift-baseline/results.json \
+            --output ${{ env.RESULTS_DIR }}/drift-report.json \
+            --alert-threshold 0.05
+
+      - name: Alert on drift detected
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🚨 ZTIF Intent Contract Model Drift Detected",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Model drift detected in ZTIF Intent Contracts*\nVerdict changes exceeded threshold. Review: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK }}
+
+      - name: Save new baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-baseline
+          path: ${{ env.RESULTS_DIR }}/drift-report.json
+          retention-days: 90
+
+  pr-gate:
+    name: PR Gate Decision
+    runs-on: ubuntu-latest
+    needs: [schema-lint, llm-guard-tests]
+    if: github.event_name == 'pull_request' && always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results/
+
+      - name: Evaluate gate decision
+        id: gate
+        run: |
+          python scripts/pr_gate_decision.py \
+            --results-dir all-results/ \
+            --output gate-decision.json
+
+      - name: Post PR comment with results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const decision = JSON.parse(fs.readFileSync('gate-decision.json', 'utf8'));
+            
+            const emoji = decision.approved ? '✅' : '❌';
+            const status = decision.approved ? 'APPROVED' : 'BLOCKED';
+            
+            let comment = `## ${emoji} ZTIF Intent Contract Validation — ${status}\n\n`;
+            comment += `**Contracts validated:** ${decision.contracts_tested}\n`;
+            comment += `**Test cases run:** ${decision.total_tests}\n`;
+            comment += `**Pass rate:** ${decision.pass_rate}%\n\n`;
+            
+            if (decision.failures.length > 0) {
+              comment += `### ❌ Failures\n`;
+              decision.failures.forEach(f => {
+                comment += `- \`${f.contract_id}\` / \`${f.test_id}\`: ${f.reason}\n`;
+              });
+              comment += '\n';
+            }
+            
+            if (decision.warnings.length > 0) {
+              comment += `### ⚠️ Warnings (non-blocking)\n`;
+              decision.warnings.forEach(w => {
+                comment += `- \`${w.contract_id}\`: ${w.message}\n`;
+              });
+            }
+            
+            comment += `\n---\n*Zero Trust Intent Framework ZTIF-IC-001 | Author: Chris Gillham*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Enforce gate decision
+        run: |
+          python -c "
+          import json, sys
+          d = json.load(open('gate-decision.json'))
+          if not d['approved']:
+              print('Gate BLOCKED:', d['block_reason'])
+              sys.exit(1)
+          print('Gate APPROVED')
+          "
+
+  compliance-report:
+    name: Compliance Coverage Report
+    runs-on: ubuntu-latest
+    needs: schema-lint
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml jinja2 markdown
+
+      - name: Generate compliance coverage matrix
+        run: |
+          python scripts/compliance_report.py \
+            --contracts-dir intent-contracts/ \
+            --frameworks nist_csf nist_sp_800_53 owasp_top10 owasp_llm_top10 \
+            --output docs/compliance-coverage.md
+
+      - name: Commit compliance report to docs/
+        run: |
+          git config user.name "ZTIF CI"
+          git config user.email "ci@ztif.local"
+          git add docs/compliance-coverage.md
+          git diff --cached --quiet || git commit -m "ci: update compliance coverage report [skip ci]"
+          git push
