@@ -1,0 +1,126 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ZTIF Intent Contract · IC-AUTH-PASSWORD-RESET-001
+# Zero Trust Intent Framework v2.0 · ZTIF-IC-001 Schema
+# Author: Chris Gillham · github.com/chrisgillham/ZTIF
+# ─────────────────────────────────────────────────────────────────────────────
+
+contract_id:              ZTIF-IC-AUTH-PWRESET-001
+version:                  "1.0.0"
+schema_version:           ZTIF-IC-001-v2.0
+author:                   Chris Gillham
+created:                  "2026-05-16T00:00:00Z"
+review_required_by:       "2026-08-16T00:00:00Z"
+
+# ── Field identity ────────────────────────────────────────────────────────────
+field_name:               email
+endpoint:                 /api/v1/auth/password-reset/request
+ui_label:                 "Email address"
+input_type:               email
+
+# ── Threat Story Method ───────────────────────────────────────────────────────
+declared_purpose: >
+  The registered email address of a user requesting a password
+  reset link. The value is used only to look up the account and
+  send a one-time reset link to the address on file. The input
+  is not rendered, displayed, or processed by any AI system.
+
+threat_scenario: >
+  A malicious actor might submit a crafted email-like string
+  containing header injection payloads targeting the email
+  dispatch system, submit bulk enumeration requests to determine
+  which email addresses are registered, or attempt injection
+  via unusual Unicode or encoded characters in the email field.
+
+semantic_boundaries:
+  - No email header injection characters (CRLF, null bytes, pipe characters)
+  - No inputs constructed to enumerate account existence at scale
+  - No encoded payloads embedded in the local or domain part of the address
+  - Input must conform to RFC 5321 email address format
+
+# ── Validation parameters ─────────────────────────────────────────────────────
+llm_confidence_threshold: 0.75
+risk_tier:                HIGH
+aal_required:             AAL1
+max_input_length:         254
+rate_limit_rpm:           3
+
+# ── Access control ────────────────────────────────────────────────────────────
+allowed_principals:
+  - role:                 anonymous_visitor
+
+# ── Gate 1 structural rules ───────────────────────────────────────────────────
+gate1_rules:
+  min_length:             6
+  allow_html:             false
+  allow_urls:             false
+  encoding:               NFKC_normalized
+  pattern_allowlist:      "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+  blocked_patterns:
+    - "\\r"
+    - "\\n"
+    - "%0d"
+    - "%0a"
+    - "\\x00"
+    - "\\|"
+    - "(?i)bcc:"
+    - "(?i)cc:"
+
+# ── HITL configuration ────────────────────────────────────────────────────────
+# Note: HITL is rarely triggered on this field due to strict Gate 1 allowlist.
+# Gate 3 is invoked only on structurally valid inputs that pass Gate 1.
+hitl_on_flag:             true
+hitl_mandatory:           false
+hitl_sla_minutes:         30
+
+# ── Security hardening notes ──────────────────────────────────────────────────
+# IMPORTANT: The password reset endpoint must return identical responses
+# regardless of whether the email address exists in the system.
+# Account enumeration defense must be implemented at the application layer —
+# ZTIF gates do not substitute for constant-time response behavior.
+
+# ── Compliance ────────────────────────────────────────────────────────────────
+compliance_mappings:
+  - LLM01
+  - LLM04
+  - NIST_SP_800_228
+
+# ── Test cases ────────────────────────────────────────────────────────────────
+test_cases:
+  - id:               TC-001
+    input:            "user@example.com"
+    expected_verdict: pass
+    notes:            Standard valid email address
+
+  - id:               TC-002
+    input:            "chris.gillham+tag@company.org"
+    expected_verdict: pass
+    notes:            Valid email with plus-tag and subdomain
+
+  - id:               TC-003
+    input:            "user@example.com\r\nBcc:attacker@evil.com"
+    expected_verdict: block
+    notes:            CRLF header injection attempt
+
+  - id:               TC-004
+    input:            "not-an-email"
+    expected_verdict: block
+    notes:            Invalid format — fails Gate 1 allowlist
+
+  - id:               TC-005
+    input:            "user%0d%0aCc:attacker@evil.com@example.com"
+    expected_verdict: block
+    notes:            URL-encoded CRLF injection
+
+notes: >
+  Gate 3 LLM evaluation adds minimal value on this field because
+  Gate 1 structural rules (RFC 5321 allowlist + CRLF blocking)
+  catch virtually all injection attempts. Gate 3 is retained for
+  defense-in-depth and audit completeness.
+
+  The risk_tier is HIGH because a successful header injection
+  attack against the email dispatch system could result in
+  phishing emails being sent via the platform's trusted domain.
+
+  Do NOT use ZTIF verdicts as a substitute for rate limiting at
+  the infrastructure layer. This field must be rate-limited at
+  the WAF or API gateway level in addition to rate_limit_rpm.

@@ -1,0 +1,115 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ZTIF Intent Contract · IC-REGISTRATION-USERNAME-001
+# Zero Trust Intent Framework v2.0 · ZTIF-IC-001 Schema
+# Author: Chris Gillham · github.com/chrisgillham/ZTIF
+# ─────────────────────────────────────────────────────────────────────────────
+
+contract_id:              ZTIF-IC-AUTH-USERNAME-001
+version:                  "1.0.0"
+schema_version:           ZTIF-IC-001-v2.0
+author:                   Chris Gillham
+created:                  "2026-05-16T00:00:00Z"
+review_required_by:       "2026-08-16T00:00:00Z"
+
+# ── Field identity ────────────────────────────────────────────────────────────
+field_name:               username
+endpoint:                 /api/v1/auth/register
+ui_label:                 "Username"
+input_type:               text
+
+# ── Threat Story Method ───────────────────────────────────────────────────────
+declared_purpose: >
+  A unique display name chosen by a new user during account
+  registration. Used for identification within the platform.
+  Must not impersonate staff, brands, or other users, and must
+  not contain offensive, harmful, or misleading content.
+
+threat_scenario: >
+  A malicious actor might attempt to register usernames that
+  impersonate platform administrators or support staff, claim
+  official brand identity, embed offensive or harassing content,
+  or use homoglyph substitution to spoof existing usernames.
+
+semantic_boundaries:
+  - No impersonation of platform roles (admin, support, moderator, staff)
+  - No brand impersonation (company name, product name, trademarks)
+  - No offensive, discriminatory, or harassing content
+  - No homoglyph or lookalike spoofing of existing high-profile usernames
+  - No usernames consisting entirely of injection syntax or code
+
+# ── Validation parameters ─────────────────────────────────────────────────────
+llm_confidence_threshold: 0.70
+risk_tier:                MEDIUM
+aal_required:             AAL1
+max_input_length:         32
+rate_limit_rpm:           10
+
+# ── Access control ────────────────────────────────────────────────────────────
+allowed_principals:
+  - role:                 anonymous_visitor
+
+# ── Gate 1 structural rules ───────────────────────────────────────────────────
+gate1_rules:
+  min_length:             3
+  allow_html:             false
+  allow_urls:             false
+  encoding:               NFKC_normalized
+  pattern_allowlist:      "^[a-zA-Z0-9_\\-\\.]+$"
+  blocked_patterns:
+    - "(?i)admin"
+    - "(?i)support"
+    - "(?i)moderator"
+    - "(?i)official"
+    - "<script"
+    - "SELECT"
+
+# ── HITL configuration ────────────────────────────────────────────────────────
+hitl_on_flag:             true
+hitl_mandatory:           false
+hitl_sla_minutes:         60
+
+# ── Compliance ────────────────────────────────────────────────────────────────
+compliance_mappings:
+  - LLM01
+  - LLM06
+  - NIST_SP_800_228
+
+# ── Test cases ────────────────────────────────────────────────────────────────
+test_cases:
+  - id:               TC-001
+    input:            "chris_gillham"
+    expected_verdict: pass
+    notes:            Standard alphanumeric username
+
+  - id:               TC-002
+    input:            "security.architect.2026"
+    expected_verdict: pass
+    notes:            Username with dots and numbers
+
+  - id:               TC-003
+    input:            "admin_official"
+    expected_verdict: block
+    notes:            Impersonation of platform admin role
+
+  - id:               TC-004
+    input:            "support_team_real"
+    expected_verdict: block
+    notes:            Impersonation of support staff
+
+  - id:               TC-005
+    input:            "xX_h4x0r_Xx"
+    expected_verdict: pass
+    notes:            Edge case — unusual but clean username
+
+  - id:               TC-006
+    input:            "'; DROP TABLE users; --"
+    expected_verdict: block
+    notes:            SQL injection attempt in username field
+
+notes: >
+  Gate 1 pattern_allowlist enforces alphanumeric + underscore/dash/dot
+  character set — most injection attempts are caught structurally
+  before Gate 3. Gate 3 primary value is impersonation and
+  homoglyph detection that regex cannot reliably catch.
+  Consider elevating to HIGH if usernames are displayed
+  prominently in a community or marketplace context.
