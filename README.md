@@ -364,6 +364,11 @@ ztif/
 - Ando, Y. (2026). *Zero-Trust Architecture for MCP-Based AI Agents*. TechRxiv. https://doi.org/10.36227/techrxiv.177155647.75363542
 
 ---
+## ToDo Items
+- Update the Repository Structure in the README.md file.
+- Integration of the ZTIF in the OWASP Juice Shop to demonstrate the application and effectiveness.
+- Identification of additional small LLMs that can run self-hosted to reduce cost and latency.
+- Integration of Open Policy Agent (https://www.openpolicyagent.org/).
 
 ## Author
 
