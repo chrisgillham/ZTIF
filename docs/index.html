@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZTIF · Zero Trust Intent Framework · Documentation Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Core Theme ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:     #0D1B2A;
+  --teal:     #0A8754;
+  --teal2:    #14BFBF;
+  --slate:   #334155;
+  --silver:   #E2E8F0;
+  --light:    #F8F9FA;
+  --text:     #1A1A1A;
+  --muted:    #64748B;
+  --white:    #FFFFFF;
+  --infobg:   #E1F5EE;
+  --sidebar:  280px;
+  --header:   56px;
+  --mono:     'IBM Plex Mono', monospace;
+  --sans:     'DM Sans', sans-serif;
+  --radius:   8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F1117;
+    --white: #161B22;
+    --light: #0F1117;
+    --text: #E2E8F0;
+    --muted: #8B9CB6;
+    --silver: #21262D;
+    --infobg: #0A1F17;
+  }
+}
+
+body {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--light);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── Global Header Bar ───────────────────────────────────────────────────── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--header);
+  background: var(--navy);
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 20px;
+  z-index: 200;
+  border-bottom: 2px solid var(--teal);
+}
+#topbar .logo {
+  font-family: var(--mono);
+  font-size: 14px; font-weight: 700; letter-spacing: .1em;
+  color: var(--teal2); text-transform: uppercase;
+}
+#topbar .sep { color: rgba(255,255,255,.2); }
+#topbar .title { font-size: 13px; color: rgba(255,255,255,.75); font-weight: 400; }
+#topbar .badge {
+  margin-left: auto;
+  font-size: 10px; font-weight: 600; letter-spacing: .08em;
+  background: var(--teal); color: #fff;
+  padding: 3px 9px; border-radius: 20px; text-transform: uppercase;
+}
+
+/* ── Layout Shell ────────────────────────────────────────────────────────── */
+#shell { display: flex; padding-top: var(--header); height: 100vh; }
+
+/* ── Structural Navigation Sidebar ───────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  background: var(--white);
+  border-right: 1px solid var(--silver);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  height: calc(100vh - var(--header));
+}
+.nav-group { margin-bottom: 20px; }
+.nav-group-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 0 20px 8px;
+}
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all .15s ease;
+  text-decoration: none;
+}
+.nav-link:hover { background: var(--light); color: var(--teal); }
+.nav-link.active {
+  color: var(--teal);
+  border-left-color: var(--teal);
+  background: var(--infobg);
+  font-weight: 700;
+}
+.nav-num {
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 700;
+  background: var(--silver); color: var(--muted);
+  padding: 2px 6px; border-radius: 4px;
+}
+.nav-link.active .nav-num { background: var(--teal); color: #fff; }
+
+/* ── Sandbox Frame Target Container ──────────────────────────────────────── */
+#content-frame-container {
+  flex: 1;
+  height: calc(100vh - var(--header));
+  background: var(--white);
+  position: relative;
+}
+iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: none;
+}
+iframe.active { display: block; }
+
+/* ── Custom Scrollbars ───────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--silver); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">ztif</div>
+  <span class="sep">·</span>
+  <div class="title">Zero Trust Intent Framework Portal</div>
+  <div class="badge">v2.0 Spec</div>
+</div>
+
+<div id="shell">
+  <nav id="sidebar" aria-label="Main Documentation Strategy">
+    <div class="nav-group">
+      <div class="nav-group-label">Core Architecture</div>
+      <a class="nav-link active" onclick="loadFrame('report', this)">
+        <span class="nav-num">01</span> Industry Alignment Report
+      </a>
+      <a class="nav-link" onclick="loadFrame('osi', this)">
+        <span class="nav-num">02</span> OSI Model Alignment
+      </a>
+      <a class="nav-link" onclick="loadFrame('guide', this)">
+        <span class="nav-num">03</span> Core Developer Guide
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Schema Specifications</div>
+      <a class="nav-link" onclick="loadFrame('schema', this)">
+        <span class="nav-num">04</span> Intent Contract Reference
+      </a>
+    </div>
+  </nav>
+
+  <main id="content-frame-container">
+    <iframe id="frame-report" class="active" src="ZTIF_Industry_Alignment_Report.html" title="ZTIF Industry Alignment Report"></iframe>
+    <iframe id="frame-osi" src="ZTIF_Gate3_OSIModelAlignment.html" title="ZTIF Gate 3 OSI Model Alignment"></iframe>
+    <iframe id="frame-guide" src="ZTIF_Developer_Guide.html" title="ZTIF Developer Guide"></iframe>
+    <iframe id="frame-schema" src="ZTIF-IC-001_Intent_Contract_Schema_Reference.html" title="ZTIF Intent Contract Schema Reference"></iframe>
+  </main>
+</div>
+
+<script>
+/**
+ * Toggles visibility of documentation sub-frames securely without breaking layout streams.
+ * Maps clean short-tokens straight to repository file paths safely.
+ */
+function loadFrame(targetKey, element) {
+  // Reset navigation focus states cleanly
+  document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+  element.classList.add('active');
+
+  // Cycle iframe visibility matrices mapping smoothly to performance targets
+  document.querySelectorAll('#content-frame-container iframe').forEach(frame => frame.classList.remove('active'));
+  
+  const targetFrame = document.getElementById('frame-' + targetKey);
+  if (targetFrame) {
+    targetFrame.classList.add('active');
+  }
+}
+</script>
+
+</body>
+</html>
