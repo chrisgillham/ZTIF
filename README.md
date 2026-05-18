@@ -66,7 +66,7 @@ Input arrives
 ### Gate 1 — Structural Validation
 *"Does this input conform to what is allowed?"*
 
-The OWASP baseline. NFKC-normalized regex detection, length enforcement, schema validation, encoding checks, and injection signature matching (SQLi, XSS, command injection, path traversal). Binary pass/fail. Sub-5ms. No trust assumed.
+The OWASP baseline. NFKC (Normalization Form Compatibility Composition) -normalized regex detection, length enforcement, schema validation, encoding checks, and injection signature matching (SQLi, XSS, command injection, path traversal). Binary pass/fail. Sub-5ms. No trust assumed.
 
 **In action:** A user submits `'; DROP TABLE users; --` into a product search field. Gate 1 fires immediately on the SQLi regex pattern. Request blocked. Never reaches Gate 2.
 
@@ -252,7 +252,7 @@ This strategy delivers the cost and residency benefits of Mistral for the majori
 
 For environments where data cannot leave the network — air-gapped systems, regulated industries, or Colab-based lab instruction — ZTIF supports **Microsoft Phi-4 Mini** as a fully local Gate 3 guard via the Hugging Face Transformers library or Ollama.
 
-Phi-4 Mini runs on a T4 GPU (Google Colab free tier) and produces reliable `pass` / `flag` / `block` classifications for standard prompt injection and semantic boundary checks. It is the recommended model for all ZTIF Colab lab notebooks, as it requires no API key, incurs no cost, and ensures student data never leaves the notebook environment.
+Phi-4 Mini runs on a T4 GPU (Google Colab free tier) and produces reliable `pass` / `flag` / `block` classifications for standard prompt injection and semantic boundary checks. It is the recommended model for all ZTIF Colab lab notebooks, as it requires no API key, incurs no cost, and ensures student data never leaves the notebook environment.  Running in Google Colab is a proof of concept mode as it has high latency.  Other self-hosted options are available for required performance levels.
 
 ```python
 # Local Phi-4 Mini via Transformers (Colab-compatible)
