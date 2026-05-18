@@ -288,43 +288,80 @@ ZTIF was developed independently from first principles. The following convergenc
 
 ---
 
-## Repository Structure
+## 📁 Repository Structure
 
 ```
-ztif/
-├── README.md                          # This file
-├── LICENSE                            # CC BY 4.0
-├── CONTRIBUTING.md                    # Contribution guidelines
-├── gates/
-│   ├── gate1_structural/              # OWASP baseline validation
-│   ├── gate2_zt_context/              # OPA policy-as-code
-│   ├── gate3_semantic/                # LLM intent guard
-│   └── gate4_business_logic/          # Domain validation template
-├── contracts/
-│   ├── intent_contract_schema.yaml    # Intent Contract specification
-│   └── examples/                      # Example contracts by risk tier
-├── guard_model/
-│   ├── itgm_001.py                    # Multi-provider LLM guard
-│   ├── two_stage_escalation.py        # Mistral-first / Claude-escalate logic
-│   └── providers/                     # Provider profiles
-│       ├── mistral.py                 # Default primary guard
-│       ├── anthropic.py               # Escalation guard
-│       ├── phi4_mini_local.py         # Local / air-gapped / Colab
-│       └── ...
-├── hitl/
-│   ├── hitl_quorum_framework.py       # HITL Quorum Framework
-│   └── discord_orchestration/         # Discord integration
-├── audit/
-│   ├── audit_agent.py                 # audit logger
-│   └── drift_detection/              # Nightly drift workflow
-├── labs/
-│   ├── colab/                        # Google Colab notebooks (Phi-4 Mini)
-│   └── owasp_llm_top10/             # OWASP LLM Top 10 lab series
-└── docs/
-    ├── industry_alignment_report.md  # ZTIF-001 v2.0 alignment analysis
-    ├── threat_story_method.md        # Intent Contract authoring guide
-    ├── provider_selection_guide.md   # OSI-inspired model selection guide
-    └── deployment_guide.md           # Implementation roadmap
+ZTIF/
+│   README.md
+│   SECURITY.md
+│
+├── docs/
+│       index.html
+│       README.md
+│       ZTIF-IC-001_Intent_Contract_Schema_Reference.html
+│       ZTIF_Developer_Guide.html
+│       ZTIF_Gate3_OSIModelAlignment.html
+│       ZTIF_Industry_Alignment_Report.html
+│
+├── OWASP_Juice-Shop_Integration/
+│       OWASP_JuiceShop_Lab.ipynb
+│       README.md
+│
+├── Presentations/
+│       README.md
+│
+├── ZTIF Course Lab/
+│       contract-validate.yml
+│       intent-contract-schema.yaml
+│       README.md
+│       run_guard_tests.py
+│
+├── ZTIF Drift Detector/
+│       README.md
+│       ZTIF_Gate3_Drift_Detector.ipynb
+│
+├── ZTIF External LLMs/
+│       README.md
+│       ZTIF_IntentGuard_v1_11.ipynb
+│       ztig_audit_log_mistral_20260517_042742.json
+│       ztig_dashboard_mistral_20260517_042736.png
+│
+├── ZTIF Local LFM 2.5/
+│       README.md
+│       ZTIF_Guard_Model_LFM25_Thinking.ipynb
+│       ztif_LFM25_audit_log_20260517_034742.json
+│       ztif_LFM25_guard_dashboard_20260517_034740.png
+│
+├── ZTIF Local Phi4/
+│       README.md
+│       ZTIF_Phi4_Colab.ipynb
+│
+├── ZTIF Local Qwen/
+│       README.md
+│       ZTIF_Guard_Model_Qwen25.ipynb
+│       ztif_qwen_audit_log_20260517_030820.json
+│       ztif_qwen_guard_dashboard_20260517_030735.png
+│
+└── ZTIF_Intent_Contracts/
+    │   index.html
+    │   README.md
+    │
+    └── Contracts/
+            README.md
+            ZTIF-IC-AUTH-PWRESET-001.yaml
+            ZTIF-IC-AUTH-USERNAME-001.yaml
+            ZTIF-IC-CHAT-MESSAGE-001.yaml
+            ZTIF-IC-CONTACT-MESSAGE-001.yaml
+            ZTIF-IC-CONTENT-REVIEW-001.yaml
+            ZTIF-IC-PAYMENT-ADDRESS-001.yaml
+            ZTIF-IC-PROFILE-BIO-001.yaml
+            ZTIF-IC-SEARCH-QUERY-001.yaml
+            ZTIF-IC-SUPPORT-TICKET-001.yaml
+            ZTIF-IC-UPLOAD-DESCRIPTION-001.yaml
+            ZTIF_IC_001_Schema_Reference.html
+````
+
+Just paste that block directly into your `README.md`. GitHub renders the fenced code block with monospace formatting, so the tree lines will display cleanly.
 ```
 
 ---
