@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Pattern · ZTIF Gate 3 Latency Optimization</title>
+<style>
+
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:    #1B2A4A;
+  --teal:    #0D7377;
+  --teal2:   #14BFBF;
+  --slate:   #3D5A80;
+  --silver:  #E8EDF3;
+  --light:   #F4F6F9;
+  --mid:     #C5CDD9;
+  --text:    #1C2333;
+  --muted:   #4A5568;
+  --subtle:  #718096;
+  --white:   #FFFFFF;
+  --ok:      #1A7A4A;
+  --okbg:    #E8F5EE;
+  --warn:    #854F0B;
+  --warnbg:  #FAEEDA;
+  --err:     #A32D2D;
+  --errbg:   #FCEBEB;
+  --infobg:  #E1F5EE;
+  --bluebg:  #E6F1FB;
+  --blue:    #185FA5;
+  --sidebar: 255px;
+  --header:  52px;
+  --mono:    'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  --sans:    -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --radius:  6px;
+  --g1bg: #E6F1FB; --g1tx: #185FA5;
+  --g2bg: #E1F5EE; --g2tx: #0F6E56;
+  --g3bg: #FEF3DC; --g3tx: #7C4A00;
+  --g4bg: #F1EFE8; --g4tx: #5F5E5A;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--light);
+  overflow-x: hidden;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--header);
+  background: var(--navy);
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 20px;
+  z-index: 200;
+  border-bottom: 2px solid var(--teal);
+}
+#topbar .logo {
+  font-size: 12px; font-weight: 700; letter-spacing: .12em;
+  color: var(--teal2); text-transform: uppercase;
+}
+#topbar .title { font-size: 13px; color: rgba(255,255,255,.75); font-weight: 400; }
+#topbar .sep { color: rgba(255,255,255,.2); }
+#topbar .badge {
+  margin-left: auto;
+  font-size: 10px; font-weight: 600; letter-spacing: .08em;
+  background: var(--teal); color: #fff;
+  padding: 3px 9px; border-radius: 20px; text-transform: uppercase;
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+#shell { display: flex; padding-top: var(--header); min-height: 100vh; }
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  background: var(--white);
+  border-right: 1px solid var(--silver);
+  position: fixed;
+  top: var(--header);
+  left: 0;
+  bottom: 0;
+  overflow-y: auto;
+  padding: 16px 0 40px;
+  z-index: 100;
+}
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--mid); border-radius: 4px; }
+.nav-group { margin-bottom: 4px; }
+.nav-group-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--subtle);
+  padding: 12px 18px 5px;
+}
+.nav-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 18px; font-size: 12.5px; color: var(--muted);
+  cursor: pointer; border-left: 2px solid transparent;
+  transition: all .13s; text-decoration: none; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.nav-link:hover { color: var(--text); background: var(--light); }
+.nav-link.active { color: var(--teal); border-left-color: var(--teal); background: var(--infobg); font-weight: 500; }
+.nav-link .nav-num {
+  font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  background: var(--silver); color: var(--subtle);
+  min-width: 16px; height: 16px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.nav-link.active .nav-num { background: var(--teal); color: #fff; }
+
+/* ── Main content ─────────────────────────────────────────────────────────── */
+#main {
+  margin-left: var(--sidebar);
+  flex: 1;
+  padding: 40px 48px 80px;
+  max-width: 900px;
+  min-width: 0;
+}
+.section { display: none; animation: fadeIn .18s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: flex-start; gap: 14px;
+  margin-bottom: 28px; padding-bottom: 20px;
+  border-bottom: 1px solid var(--silver);
+}
+.section-num {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  background: var(--navy); color: var(--teal2);
+  padding: 4px 8px; border-radius: 4px; margin-top: 4px; flex-shrink: 0;
+}
+.section-header h1 { font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1.25; }
+.section-header .subtitle { font-size: 13px; color: var(--subtle); margin-top: 4px; }
+h2 {
+  font-size: 15px; font-weight: 600; color: var(--navy);
+  margin: 32px 0 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+h2::before { content: ''; display: block; width: 3px; height: 16px; background: var(--teal); border-radius: 2px; flex-shrink: 0; }
+h3 { font-size: 13px; font-weight: 600; color: var(--slate); margin: 20px 0 8px; }
+p { color: var(--muted); font-size: 13.5px; line-height: 1.7; margin-bottom: 12px; }
+p:last-child { margin-bottom: 0; }
+strong { color: var(--text); font-weight: 600; }
+code {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--silver); color: var(--navy);
+  padding: 1px 5px; border-radius: 3px;
+}
+ul, ol { padding-left: 0; margin: 12px 0 16px; }
+li {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 5px 0; font-size: 13px; color: var(--muted); line-height: 1.6;
+}
+li::before {
+  content: '▸'; color: var(--teal); font-size: 10px;
+  margin-top: 4px; flex-shrink: 0;
+}
+ol { counter-reset: li-count; }
+ol li::before {
+  content: counter(li-count); counter-increment: li-count;
+  background: var(--navy); color: var(--teal2);
+  font-size: 9px; font-weight: 700;
+  min-width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 2px; flex-shrink: 0;
+}
+
+/* ── Code blocks ──────────────────────────────────────────────────────────── */
+.code-block {
+  border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--silver); margin: 14px 0 20px;
+}
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--navy); padding: 8px 14px;
+}
+.code-lang {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--teal2);
+}
+.copy-btn {
+  font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.6); border-radius: 3px; padding: 3px 9px;
+  cursor: pointer; transition: all .13s; display: flex; align-items: center; gap: 5px;
+}
+.copy-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+pre {
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+  background: #0F1923; color: #CDD9E5;
+  padding: 16px 18px; overflow-x: auto; tab-size: 2;
+}
+.tok-kw   { color: #79B8FF; }
+.tok-str  { color: #9ECBFF; }
+.tok-cm   { color: #6A737D; font-style: italic; }
+.tok-fn   { color: #B392F0; }
+.tok-num  { color: #F8C555; }
+.tok-op   { color: #F97583; }
+
+/* ── Provider tabs ────────────────────────────────────────────────────────── */
+.tab-group { margin: 14px 0 20px; }
+.tab-bar {
+  display: flex; gap: 0; border-bottom: 1px solid var(--silver);
+  overflow-x: auto;
+}
+.tab-btn {
+  padding: 8px 16px; font-size: 12px; font-weight: 500;
+  color: var(--subtle); cursor: pointer; white-space: nowrap;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all .13s; display: flex; align-items: center; gap: 6px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); font-weight: 600; }
+.tab-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Callouts ─────────────────────────────────────────────────────────────── */
+.callout {
+  display: flex; gap: 0; margin: 16px 0;
+  border-radius: var(--radius); overflow: hidden;
+  border: 1px solid;
+}
+.callout-label {
+  padding: 14px 12px; writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px;
+}
+.callout-body { padding: 14px 16px; font-size: 13px; line-height: 1.65; flex: 1; }
+.callout-body strong { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: .02em; }
+.callout-info  { border-color: var(--teal);  }
+.callout-info  .callout-label { background: var(--teal);  color: #fff; }
+.callout-info  .callout-body  { background: var(--infobg); color: var(--text); }
+.callout-warn  { border-color: #D4A017; }
+.callout-warn  .callout-label { background: #D4A017; color: #fff; }
+.callout-warn  .callout-body  { background: var(--warnbg); color: var(--text); }
+.callout-ok    { border-color: var(--ok); }
+.callout-ok    .callout-label { background: var(--ok); color: #fff; }
+.callout-ok    .callout-body  { background: var(--okbg); color: var(--text); }
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 13px; }
+.data-table th {
+  text-align: left; padding: 9px 12px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: #fff;
+  background: var(--navy); border: none;
+}
+.data-table th:first-child { border-radius: 6px 0 0 0; }
+.data-table th:last-child  { border-radius: 0 6px 0 0; }
+.data-table td {
+  padding: 9px 12px; border-bottom: 1px solid var(--silver);
+  vertical-align: top; color: var(--muted);
+}
+.data-table tr:nth-child(even) td { background: var(--light); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table td:first-child { font-family: var(--mono); font-size: 11.5px; color: var(--navy); }
+
+/* ── Pipeline diagram ─────────────────────────────────────────────────────── */
+#pipeline-diagram {
+  background: var(--white); border: 1px solid var(--silver);
+  border-radius: 10px; padding: 24px; margin: 20px 0;
+}
+.pipe-flow {
+  display: flex; align-items: center; gap: 0; margin-bottom: 20px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+.pipe-node {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; flex-shrink: 0;
+}
+.pipe-box {
+  padding: 8px 14px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-align: center; border: 2px solid;
+  min-width: 95px;
+}
+.pipe-sub { font-size: 9.5px; color: var(--subtle); text-align: center; }
+.pipe-arrow {
+  width: 32px; height: 2px; background: var(--mid); flex-shrink: 0;
+  position: relative; margin: 0 -1px;
+}
+.pipe-arrow::after {
+  content: ''; position: absolute; right: -5px; top: -4px;
+  border: 5px solid transparent; border-left: 6px solid var(--mid);
+}
+.g1 { background: var(--g1bg); border-color: #B5D4F4; color: var(--g1tx); }
+.g2 { background: var(--g2bg); border-color: #9FE1CB; color: var(--g2tx); }
+.g3 { background: var(--g3bg); border-color: #FAC775; color: var(--g3tx); }
+.g4 { background: var(--g4bg); border-color: #D3D1C7; color: var(--g4tx); }
+.g-accept { background: var(--okbg); border-color: #C0DD97; color: var(--ok); }
+.g-input  { background: var(--silver); border-color: var(--mid); color: var(--muted); }
+
+/* ── Quick start steps ───────────────────────────────────────────────────── */
+.steps { display: flex; flex-direction: column; gap: 0; margin: 16px 0; }
+.step { display: flex; gap: 16px; position: relative; }
+.step:not(:last-child)::before {
+  content: ''; position: absolute; left: 14px; top: 30px; bottom: 0;
+  width: 1px; background: var(--mid);
+}
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--navy);
+  color: var(--teal2); font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+}
+.step-content { flex: 1; padding-bottom: 20px; }
+.step-title { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 6px; line-height: 28px; }
+
+/* ── Misc ─────────────────────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--silver); margin: 28px 0; }
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 20px; }
+.tag {
+  font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 10px;
+  letter-spacing: .04em; background: var(--silver); color: var(--muted);
+}
+.badge-gray { background: var(--silver); color: var(--muted); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+
+@media print {
+  #topbar, #sidebar { display: none; }
+  #main { margin: 0; padding: 20px; max-width: 100%; }
+  .section { display: block !important; page-break-before: always; }
+  .section:first-child { page-break-before: auto; }
+}
+
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="logo">Security Pattern</div>
+  <span class="sep">·</span>
+  <div class="title">ZTIF Gate 3 Latency Optimization &nbsp;·&nbsp; Architecture &amp; Implementation</div>
+  <div class="badge">May 2026</div>
+</div>
+<div id="shell">
+  <nav id="sidebar">
+    <div class="nav-group">
+      <div class="nav-group-label">Executive Analysis</div>
+      <a class="nav-link active" id="link-intro" onclick="show('intro')"><span class="nav-num">00</span>Problem &amp; Context</a>
+      <a class="nav-link" id="link-forces" onclick="show('forces')"><span class="nav-num">01</span>Forces &amp; Tensions</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Solution Design</div>
+      <a class="nav-link" id="link-tiers" onclick="show('tiers')"><span class="nav-num">02</span>The Five Tiers</a>
+      <a class="nav-link" id="link-strategies" onclick="show('strategies')"><span class="nav-num">03</span>Implementation Strategies</a>
+      <a class="nav-link" id="link-verdict" onclick="show('verdict')"><span class="nav-num">04</span>The Verdict Contract</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Risk Engineering</div>
+      <a class="nav-link" id="link-decision" onclick="show('decision')"><span class="nav-num">05</span>Decision Matrix</a>
+      <a class="nav-link" id="link-antipatterns" onclick="show('antipatterns')"><span class="nav-num">06</span>Anti-Patterns</a>
+      <a class="nav-link" id="link-roadmap" onclick="show('roadmap')"><span class="nav-num">07</span>Roadmap &amp; Metrics</a>
+    </div>
+  </nav>
+  <main id="main">
+    <!-- SECTION 00: INTRO -->
+    <div class="section active" id="s-intro">
+      <div class="section-header">
+        <div class="section-num">00</div>
+        <div>
+          <h1>The Core Tension: Security vs. Speed at Gate 3</h1>
+          <div class="subtitle">Why semantic validation latency breaks both human UX and M2M SLAs</div>
+        </div>
+      </div>
+      <div class="tag-row" style="margin-bottom: 24px;">
+        <span class="tag" style="background:#E1F5EE;color:#0F6E56">Zero Trust Intent Framework</span>
+        <span class="tag" style="background:#E6F1FB;color:#185FA5">Security Pattern</span>
+        <span class="tag" style="background:#FEF3DC;color:#7C4A00">Gate 3 Semantic Guard</span>
+        <span class="tag" style="background:#FCEBEB;color:#A32D2D">Latency Optimization</span>
+      </div>
+      <p style="font-size: 14px; color: var(--text); font-weight: 500; margin-bottom: 16px;">
+        The Zero Trust Intent Framework (ZTIF) Gate 3 — Semantic Intent Verification — introduces a <strong>non-negotiable security control</strong> that evaluates whether an input's meaning matches the declared purpose of the receiving field. This control is essential for detecting prompt injection (OWASP LLM01), semantic bypass attacks, context-blind payload delivery, and multi-turn conversational manipulation.
+      </p>
+      <p>
+        However, LLM-based semantic evaluation introduces <strong>latency in the 800–2000ms range</strong> and <strong>per-request API costs</strong> that scale linearly with traffic volume. This creates architectural friction when human-facing interfaces require sub-second responsiveness, machine-to-machine (M2M) API flows process millions of requests per hour, and high-throughput microservices cannot sustain the cost curve of general-purpose LLM inference at volume.
+      </p>
+      <div class="callout callout-warn">
+        <div class="callout-label">TENSION</div>
+        <div class="callout-body">
+          <strong>The Core Tension:</strong> General-purpose LLMs are flexible and context-aware but slow (800–2000ms) and expensive at scale. Purpose-built classifiers are fast (20–50ms) and cheap but cannot evaluate novel, application-specific semantic violations the way a contract-guided LLM can. The <strong>Zero Trust Intent Framework (ZTIF)</strong> supports both — and anything in between — through a single architectural principle.
+        </div>
+      </div>
+      <div class="divider"></div>
+      <h2>What Happens Without This Pattern</h2>
+      <ul>
+        <li><strong>Security degradation:</strong> Teams bypass Gate 3 for "internal" or "service" traffic, creating a two-tier security model that violates Zero Trust tenets (NIST SP 800-207: "no meaningful distinction between internal and external caller").</li>
+        <li><strong>Shadow bypasses:</strong> Engineering teams implement unaudited whitelists or pre-shared secrets to skip semantic validation for M2M flows.</li>
+        <li><strong>UX abandonment:</strong> Human users experience timeout errors or perceived system slowness, leading to workarounds or reduced engagement.</li>
+        <li><strong>Cost explosion:</strong> Running all traffic through Tier 4 (Claude Opus) or even Tier 3 (Claude Sonnet) produces unsustainable per-request economics at scale.</li>
+        <li><strong>False dichotomy:</strong> Organizations treat the choice as binary — "secure with LLM" or "fast without LLM" — missing the modular middle ground.</li>
+      </ul>
+      <div class="divider"></div>
+      <h2>Context &amp; Applicable Environments</h2>
+      <table class="data-table">
+        <tr><th>Environment</th><th>Relevance</th><th>Typical Volume</th></tr>
+        <tr><td>Human-facing web apps (search, chat, support)</td><td><strong>High</strong></td><td>10–1000 req/min</td></tr>
+        <tr><td>Mobile app input surfaces</td><td><strong>High</strong></td><td>100–5000 req/min</td></tr>
+        <tr><td>Internal microservice mesh (M2M)</td><td><strong>Critical</strong></td><td>10K–1M req/min</td></tr>
+        <tr><td>B2B API gateways (partner integrations)</td><td><strong>Critical</strong></td><td>1K–50K req/min</td></tr>
+        <tr><td>Batch processing / ETL pipelines</td><td>Medium</td><td>Variable, async</td></tr>
+        <tr><td>Agentic AI workflows (tool invocation)</td><td><strong>High</strong></td><td>100–10K req/min</td></tr>
+        <tr><td>IoT / edge data ingestion</td><td>Medium</td><td>High volume, constrained bandwidth</td></tr>
+      </table>
+      <h3>Pre-Conditions</h3>
+      <ul>
+        <li>ZTIF Gates 1 (Structural) and 2 (Zero Trust Context) are operational</li>
+        <li>Intent Contracts exist for all guarded input surfaces</li>
+        <li>A Principal identity model is enforced (no anonymous M2M — all callers carry verifiable identity)</li>
+        <li>Observability infrastructure exists for Layer 5 (Continuous Audit)</li>
+        <li>Rate limiting and circuit breaker patterns are in place upstream</li>
+      </ul>
+      <h3>Post-Conditions (Success State)</h3>
+      <ul>
+        <li>Every input — human or machine — receives semantic validation appropriate to its risk tier</li>
+        <li>Latency budgets are honored per contract, not globally</li>
+        <li>Cost per 1,000 evaluations is predictable and tiered</li>
+        <li>No "fast path" exists that bypasses security controls based on caller type alone</li>
+        <li>Drift detection and HITL quorum remain active across all tiers</li>
+      </ul>
+    </div>
+    <!-- SECTION 01: FORCES -->
+    <div class="section" id="s-forces">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <div>
+          <h1>Forces &amp; Architectural Tensions</h1>
+          <div class="subtitle">Seven constraints that shape the tiered validation design</div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Force</th><th>Description</th><th>Tension</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>F1: Security Depth</strong></td><td>Semantic validation must detect novel, application-specific attacks not in any training set</td><td>Drives toward general-purpose LLMs (high latency, high cost)</td></tr>
+          <tr><td><strong>F2: Latency Budget</strong></td><td>Human UX degrades above 500ms; M2M SLA often requires &lt;100ms p99</td><td>Drives toward purpose-built classifiers or async deferral</td></tr>
+          <tr><td><strong>F3: Cost Efficiency</strong></td><td>Per-request LLM costs become prohibitive at &gt;100K req/day</td><td>Drives toward cheaper models or local inference</td></tr>
+          <tr><td><strong>F4: Detection Breadth</strong></td><td>Classifiers trained on known patterns miss novel semantic boundary violations</td><td>Drives toward contract-guided LLM evaluation</td></tr>
+          <tr><td><strong>F5: Compliance Residency</strong></td><td>GDPR, HIPAA, or sovereign requirements may prohibit data egress to certain providers</td><td>Drives toward EU-hosted or local models</td></tr>
+          <tr><td><strong>F6: Operational Simplicity</strong></td><td>Multiple Gate 3 implementations increase deployment complexity</td><td>Drives toward single-provider standardization</td></tr>
+          <tr><td><strong>F7: Zero Trust Integrity</strong></td><td>No caller — internal or external — is implicitly trusted</td><td>Prohibits "internal fast path" bypasses</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info">
+        <div class="callout-label">PRINCIPLE</div>
+        <div class="callout-body">
+          <strong>Match the Gate 3 implementation to the risk tier, latency budget, and data residency requirement of each Intent Contract — not to the caller type (human vs. machine).</strong> This preserves Zero Trust integrity while allowing operational pragmatism. The mechanism is the stable interface contract between Gate 3 and the rest of the pipeline.
+        </div>
+      </div>
+    </div>
+    <!-- SECTION 02: TIERS -->
+    <div class="section" id="s-tiers">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <div>
+          <h1>The Five Tiers</h1>
+          <div class="subtitle">Risk-based provider selection from free-tier prototyping to high-throughput enterprise</div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Tier</th><th>Implementation</th><th>Latency</th><th>Cost / MTok</th><th>Detection Breadth</th><th>Best For</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>T1</strong></td><td>Gemini 2.5 Flash (Free Tier)</td><td>800–1200ms</td><td>$0</td><td>Good — general purpose</td><td>Dev/test, low volume, prototyping</td></tr>
+          <tr><td><strong>T2</strong></td><td>Mistral Small (Primary Guard)</td><td>700–1000ms</td><td>$0.06 in / $0.18 out</td><td>Good — structured inputs</td><td>Startup, EU GDPR, default production</td></tr>
+          <tr><td><strong>T3</strong></td><td>Claude Sonnet 4.6 (Escalation)</td><td>1000–1500ms</td><td>$3.00 in / $15.00 out</td><td>Very good — nuanced</td><td>Enterprise production, high-risk fields</td></tr>
+          <tr><td><strong>T4</strong></td><td>Claude Opus 4.6 (Maximum Assurance)</td><td>1500–2000ms</td><td>$15.00 in / $75.00 out</td><td>Best — critical reasoning</td><td>CRITICAL tier only: auth, financial, healthcare</td></tr>
+          <tr><td><strong>T5</strong></td><td>Purpose-built Classifier (LLM Guard / Lakera / Fine-tuned BERT)</td><td><strong>20–50ms</strong></td><td>~$0 (self-hosted) or commercial</td><td>Broad — attack-trained</td><td><strong>High-throughput M2M, millions of requests/day</strong></td></tr>
+        </tbody>
+      </table>
+      <h2>Selection Logic</h2>
+      <p>The Intent Contract's <code>risk.tier</code> field drives provider selection — <strong>not</strong> the caller type. This is the architectural guarantee that preserves Zero Trust integrity.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">Copy Config</button></div>
+        <pre># Intent Contract determines tier — NOT caller type
+risk:
+  tier: critical   # ← Drives provider selection
+
+# Example routing matrix (configured per contract):
+GATE3_PROVIDERS:
+  critical:   claude_opus_complete      # Tier 4
+  high:       claude_sonnet_complete    # Tier 3
+  medium:     mistral_small_complete    # Tier 2
+  low:        classifier_primary        # Tier 5 (fast) + mistral_secondary (uncertain)
+        </pre>
+      </div>
+      <h2>OSI-Style Multiplexing</h2>
+      <p>A single application can route authentication fields (risk: high) to Claude Sonnet, product search (risk: medium) to Mistral Small, internal admin actions (risk: critical) to Claude Opus, and user preference fields (risk: low) to a purpose-built classifier — all inside the same four-gate pipeline, driven by the same Intent Contracts, routing through the same OPA policies, logging to the same audit system.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy Strategy</button></div>
+        <pre># Map each risk tier to the appropriate Gate 3 implementation
+GATE3_PROVIDERS = {
+    "critical": claude_opus_complete,     # Max capability, highest cost
+    "high":     claude_sonnet_complete,   # Balanced — production default
+    "medium":   mistral_small_complete,   # Cost-optimized
+    "low":      classifier_primary,      # Fast / async path
+}
+
+def run_gate3_tiered(sanitized_input: str, contract: dict) -> Gate3Result:
+    tier   = contract["risk"]["tier"]
+    llm_fn = GATE3_PROVIDERS.get(tier, claude_sonnet_complete)
+    return run_gate3(sanitized_input, contract, llm_fn)
+        </pre>
+      </div>
+    </div>
+    <!-- SECTION 03: STRATEGIES -->
+    <div class="section" id="s-strategies">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <div>
+          <h1>Three Implementation Strategies</h1>
+          <div class="subtitle">Two-stage escalation, hybrid chaining, and async deferral</div>
+        </div>
+      </div>
+      <div class="tab-group">
+        <div class="tab-bar">
+          <div class="tab-btn active" onclick="switchTab(event, 'st1')"><span class="tab-dot" style="background:var(--teal2)"></span>Two-Stage Escalation</div>
+          <div class="tab-btn" onclick="switchTab(event, 'st2')"><span class="tab-dot" style="background:var(--ok)"></span>Hybrid Chaining</div>
+          <div class="tab-btn" onclick="switchTab(event, 'st3')"><span class="tab-dot" style="background:var(--blue)"></span>Async Deferral</div>
+        </div>
+        <div class="tab-pane active" id="pane-st1">
+          <div style="background:var(--white); padding:16px; border:1px solid var(--silver); border-top:none; border-radius:0 0 var(--radius) var(--radius);">
+            <h3>Strategy 1 — Two-Stage Escalation (Default Production)</h3>
+            <p><strong>When to use:</strong> Human-facing interfaces and standard M2M flows where balanced cost and security are required. This is the ZTIF v2.0 default production posture.</p>
+            <p><strong>How it works:</strong> Run every input through Mistral Small first (Stage 1). Escalate to Claude automatically when confidence is low, risk tier is HIGH/CRITICAL, or the verdict is <code>flag</code>.</p>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">python</span></div>
+              <pre>def run_gate3_tiered(sanitized_input: str, contract: dict) -> Gate3Result:
+    threshold = contract["validation_chain"]["llm_confidence_threshold"]
+    risk_tier = contract["risk"]["tier"]
+
+    # Stage 1: Always run fast/cheap primary first
+    result = run_gate3(sanitized_input, contract, llm_fn=mistral_complete)
+
+    # Stage 2: Escalate if uncertain, high-risk, or flagged
+    if (result.confidence < threshold
+        or risk_tier in ("high", "critical")
+        or result.verdict == "flag"):
+
+        model = "claude-opus-4-6" if risk_tier == "critical" else "claude-sonnet-4-6"
+        result = run_gate3(sanitized_input, contract, llm_fn=anthropic_complete(model))
+
+    return result
+              </pre>
+            </div>
+            <p><strong>Latency impact:</strong> ~70–80% of traffic resolves at Stage 1 (700–1000ms). Only 20–30% escalates to Stage 2 (1000–2000ms). <strong>Effective p50 latency: ~850ms.</strong></p>
+            <p><strong>Cost impact:</strong> 250× cheaper than Opus-only for the majority of traffic. Only high-risk or uncertain traffic incurs premium model costs.</p>
+          </div>
+        </div>
+        <div class="tab-pane" id="pane-st2">
+          <div style="background:var(--white); padding:16px; border:1px solid var(--silver); border-top:none; border-radius:0 0 var(--radius) var(--radius);">
+            <h3>Strategy 2 — Hybrid Chaining (High-Throughput M2M)</h3>
+            <p><strong>When to use:</strong> High-volume machine-to-machine flows where &lt;100ms p99 is required and millions of requests per day are processed.</p>
+            <p><strong>How it works:</strong> A purpose-built classifier (Tier 5) acts as the first pass in Gate 3. Known attack patterns are caught in 20–50ms. Uncertain or novel inputs escalate to a contract-guided LLM (Tier 2/3) for deeper semantic evaluation.</p>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">python</span></div>
+              <pre>def run_gate3_hybrid(sanitized_input: str, contract: dict) -> Gate3Result:
+    # Pass 1: Purpose-built classifier (fast, attack-pattern trained)
+    classifier_result = classifier.scan(
+        sanitized_input,
+        semantic_context=contract["intent"]["semantic_boundaries"]
+    )
+
+    # High-confidence clear pass/block: return immediately (20-50ms total)
+    if classifier_result.confidence > 0.90:
+        return Gate3Result(
+            passed=not classifier_result.is_violation,
+            blocked=classifier_result.is_violation,
+            verdict="block" if classifier_result.is_violation else "pass",
+            confidence=classifier_result.confidence,
+            reason=classifier_result.reason
+        )
+
+    # Uncertain or novel input: escalate to Intent Contract LLM (700-1500ms)
+    return run_gate3(sanitized_input, contract, llm_fn=mistral_complete)
+              </pre>
+            </div>
+            <p><strong>Latency impact:</strong> p50 drops to <strong>~35ms</strong>. p95 rises to ~1000ms (only uncertain traffic). Cost drops by 85–95% compared to LLM-only.</p>
+            <p><strong>Security impact:</strong> Known attacks are caught immediately. Novel attacks (e.g., application-specific semantic boundary violations not in classifier training) are caught by the LLM fallback. Defense in depth without defense in latency.</p>
+          </div>
+        </div>
+        <div class="tab-pane" id="pane-st3">
+          <div style="background:var(--white); padding:16px; border:1px solid var(--silver); border-top:none; border-radius:0 0 var(--radius) var(--radius);">
+            <h3>Strategy 3 — Async Deferral (Low-Risk Non-Critical Paths)</h3>
+            <p><strong>When to use:</strong> Low-risk M2M batch operations, internal telemetry, or idempotent/reversible operations where immediate response is more important than synchronous security validation.</p>
+            <p><strong>How it works:</strong> Gates 1 and 2 run synchronously. Gate 3 is dispatched as a background task. The request proceeds to Gate 4 immediately. If Gate 3 later returns <code>block</code>, a compensating transaction or revocation pattern must reverse the Gate 4 effects.</p>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">python</span></div>
+              <pre>async def run_pipeline_async_deferred(raw, contract, principal):
+    g1 = run_gate1(raw, contract)
+    if not g1.passed: return reject_result(g1)
+
+    g2 = await run_gate2_async(principal, contract)
+    if not g2.passed: return reject_result(g2)
+
+    # For low-risk tiers: accept immediately, validate semantically in background
+    if contract["risk"]["tier"] in ("low", "medium"):
+        asyncio.create_task(gate3_and_log(g1.sanitized_input, contract))
+        return accept_result(g1.sanitized_input)  # Immediate response
+
+    # High/critical: synchronous Gate 3 (blocks until verdict)
+    g3 = await run_gate3_async(g1.sanitized_input, contract)
+    return handle_g3(g3, g1, contract)
+              </pre>
+            </div>
+            <div class="callout callout-warn">
+              <div class="callout-label">WARNING</div>
+              <div class="callout-body">
+                <strong>Trade-off:</strong> Gate 4 (Business Logic) executes before Gate 3 completes. If Gate 3 later returns <code>block</code>, a compensating transaction or revocation pattern must be implemented. <strong>Only suitable for idempotent or reversible operations.</strong> Monitor post-hoc block rate; if it exceeds 1%, the async pattern is inappropriate for this surface.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout callout-info">
+        <div class="callout-label">HYBRID</div>
+        <div class="callout-body">
+          <strong>The Best of Both:</strong> For high-throughput enterprise deployments, consider combining all three strategies: use hybrid chaining (classifier + LLM fallback) for high-volume M2M, two-stage escalation for human-facing flows, and async deferral for background batch jobs. All honor the same Gate 3 interface contract. The OSI model would recognize this pattern immediately.
+        </div>
+      </div>
+    </div>
+    <!-- SECTION 04: VERDICT -->
+    <div class="section" id="s-verdict">
+      <div class="section-header">
+        <div class="section-num">04</div>
+        <div>
+          <h1>The Verdict Contract</h1>
+          <div class="subtitle">Why the stable interface makes tiered validation possible</div>
+        </div>
+      </div>
+      <p>
+        Every Gate 3 implementation — whether Claude Opus, Mistral Small, Gemini Flash, LLM Guard, or a fine-tuned BERT classifier — must produce the same JSON output structure. This is the layer interface contract, enforced by the pipeline orchestrator:
+      </p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">Copy Schema</button></div>
+        <pre>{
+  <span class="tok-kw">"verdict"</span>:           <span class="tok-str">"pass | flag | block"</span>,
+  <span class="tok-kw">"confidence"</span>:        <span class="tok-num">0.0</span>,
+  <span class="tok-kw">"reason"</span>:            <span class="tok-str">"Under 80 words"</span>,
+  <span class="tok-kw">"threat_indicators"</span>: [<span class="tok-str">"list of signals detected"</span>],
+  <span class="tok-kw">"owasp_categories"</span>:  [<span class="tok-str">"LLM01"</span>, <span class="tok-str">"LLM06"</span>]
+}
+        </pre>
+      </div>
+      <p>
+        The orchestrator calls <code>llm_fn()</code> and parses the result. It has no idea what <code>llm_fn</code> is — Claude, Mistral, Gemini, LLM Guard, a fine-tuned BERT classifier, or a rules engine that outputs the right JSON. All are valid. All are swappable. None require changing any other gate.
+      </p>
+      <table class="data-table">
+        <thead>
+          <tr><th>Framework Component</th><th>Changes with Gate 3 swap?</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Gate 1 — Structural validation (OWASP)</td><td>Never</td></tr>
+          <tr><td>Gate 2 — OPA policy enforcement</td><td>Never</td></tr>
+          <tr><td>Gate 3 — Intent Contract (YAML)</td><td>Never</td></tr>
+          <tr><td>Gate 3 — Orchestrator logic</td><td>Never</td></tr>
+          <tr><td>Gate 3 — Verdict JSON schema</td><td>Never</td></tr>
+          <tr><td>Gate 4 — Business logic rules</td><td>Never</td></tr>
+          <tr><td>HITL quorum routing</td><td>Never</td></tr>
+          <tr><td>Audit logging schema</td><td>Never</td></tr>
+          <tr><td>Drift detection baseline</td><td>Rebaselines automatically</td></tr>
+          <tr><td>The <code>llm_fn</code> implementation</td><td><span style="color:var(--teal); font-weight:700;">This is the only thing that changes</span></td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info">
+        <div class="callout-label">ANALOGY</div>
+        <div class="callout-body">
+          <strong>The OSI Parallel:</strong> The Intent Contract is to Gate 3 what the Ethernet frame format is to the data link layer: a stable specification that everything above and below it depends on, but that nothing inside the implementation needs to know about. You can run Ethernet over copper, fiber, or Wi-Fi. You can run Gate 3 over Claude, Mistral, or a BERT classifier. The frame format — the verdict schema — never changes.
+        </div>
+      </div>
+    </div>
+    <!-- SECTION 05: DECISION -->
+    <div class="section" id="s-decision">
+      <div class="section-header">
+        <div class="section-num">05</div>
+        <div>
+          <h1>Decision Matrix</h1>
+          <div class="subtitle">Six questions to select the right strategy per input surface</div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Question</th><th>If Yes</th><th>If No</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Is this a <code>CRITICAL</code> risk tier? (auth, financial, healthcare, admin)</td><td>Use Tier 4 (Opus) or Tier 3 (Sonnet). Never async.</td><td>Evaluate next question.</td></tr>
+          <tr><td>Is volume &gt; 100K requests/day?</td><td>Use Tier 5 classifier primary + Tier 2/3 escalation hybrid.</td><td>Tier 2 or Tier 3 primary is sufficient.</td></tr>
+          <tr><td>Is latency SLA &lt; 100ms p99?</td><td>Use Tier 5 classifier. Consider async deferral if operation is reversible.</td><td>Tier 2/3 synchronous is acceptable.</td></tr>
+          <tr><td>Does the input contain PII requiring EU residency?</td><td>Use Tier 2 (Mistral Small) or local Tier 5 (EU-hosted classifier).</td><td>Provider selection opens to all tiers.</td></tr>
+          <tr><td>Is the operation idempotent / reversible?</td><td>Async deferral is an option. Gate 4 executes immediately; Gate 3 validates post-hoc.</td><td>Must use synchronous Gate 3 before Gate 4.</td></tr>
+          <tr><td>Is this a novel input surface with unknown attack patterns?</td><td>Start with Tier 3 (Sonnet) for maximum reasoning depth; collect data; then optimize down.</td><td>Use established tier based on risk classification.</td></tr>
+        </tbody>
+      </table>
+      <h2>Benefits</h2>
+      <ul>
+        <li><strong>Zero Trust Integrity Preserved:</strong> No caller-type exemptions exist. All inputs evaluated. Routing is by risk tier, not by "internal vs. external" assumption.</li>
+        <li><strong>Latency Budget Honored:</strong> Human search fields can use Tier 2 (700ms). M2M inventory sync can use Tier 5 (35ms). Critical financial auth uses Tier 4 (1500ms) regardless of caller.</li>
+        <li><strong>Cost Predictability:</strong> Per-contract cost modeling. High-volume M2M contracts use cheap classifiers. Low-volume critical contracts use expensive LLMs.</li>
+        <li><strong>Modular Evolution:</strong> New provider (e.g., Kimi K2.6, new Claude version) is a configuration change, not a pipeline rewrite.</li>
+        <li><strong>Residency Compliance:</strong> EU data stays in EU (Mistral). China requirements use DeepSeek. Air-gapped uses Phi-4 Mini. All via same interface.</li>
+        <li><strong>Defense in Depth:</strong> Hybrid chaining means known attacks are caught in 20ms by classifiers; novel attacks are caught by contract-guided LLMs.</li>
+      </ul>
+      <h2>Liabilities &amp; Mitigations</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Liability</th><th>Mitigation</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Classifier false negatives on novel attacks</strong></td><td>Hybrid chaining routes uncertain results to LLM. Nightly drift detection catches model degradation.</td></tr>
+          <tr><td><strong>Increased operational complexity</strong></td><td>Unified <code>llm_complete()</code> abstraction hides provider differences. Infrastructure-as-code manages tier mapping.</td></tr>
+          <tr><td><strong>Async deferral allows bad input to reach Gate 4</strong></td><td>Restrict async pattern to idempotent/reversible operations. Implement compensating transactions. Monitor post-hoc block rate.</td></tr>
+          <tr><td><strong>Tier 5 classifiers may not parse Intent Contract nuances</strong></td><td>Pass <code>semantic_boundaries</code> as context to classifier. Fine-tune on contract-specific violations.</td></tr>
+          <tr><td><strong>Latency variability across providers</strong></td><td>Circuit breakers per provider. Timeout = 2s with fail-open-to-HITL (never fail-open-to-accept).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- SECTION 06: ANTI-PATTERNS -->
+    <div class="section" id="s-antipatterns">
+      <div class="section-header">
+        <div class="section-num">06</div>
+        <div>
+          <h1>Anti-Patterns</h1>
+          <div class="subtitle">What not to do when optimizing Gate 3 latency</div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Anti-Pattern</th><th>Why It Fails</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>"Internal Fast Path"</strong></td><td>Bypass Gate 3 for service-to-service calls. Violates NIST 800-228 "no meaningful distinction between internal and external." Creates lateral movement opportunity.</td></tr>
+          <tr><td><strong>"One Model For All"</strong></td><td>Running all traffic through Claude Opus for "maximum security." Unsustainable cost; unnecessary latency for low-risk fields.</td></tr>
+          <tr><td><strong>"Latency Overrides Security"</strong></td><td>Disabling Gate 3 entirely for M2M because "it's too slow." Reintroduces semantic bypass vulnerability that ZTIF was built to close.</td></tr>
+          <tr><td><strong>"Human vs. Machine Routing"</strong></td><td>Selecting provider based on <code>User-Agent</code> or principal type rather than risk tier. Humans can be malicious; machines can be compromised.</td></tr>
+          <tr><td><strong>"No Timeout Handling"</strong></td><td>Gate 3 hangs indefinitely. Must fail-open-to-HITL (flag) with 2s timeout, never fail-open-to-accept.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-warn">
+        <div class="callout-label">WARNING</div>
+        <div class="callout-body">
+          <strong>The "Internal Fast Path" is the most dangerous anti-pattern.</strong> It appears rational — "our microservices trust each other" — but it reintroduces the exact perimeter-thinking vulnerability that Zero Trust architecture eliminates. A compromised internal service account becomes a privileged attacker with no semantic guard. NIST SP 800-228-upd1 §2.3 is explicit: there is no meaningful security distinction between internal and external callers at the input validation layer.
+        </div>
+      </div>
+    </div>
+    <!-- SECTION 07: ROADMAP -->
+    <div class="section" id="s-roadmap">
+      <div class="section-header">
+        <div class="section-num">07</div>
+        <div>
+          <h1>Roadmap &amp; Metrics</h1>
+          <div class="subtitle">Implementation sequence and observability targets</div>
+        </div>
+      </div>
+      <h2>8-Week Implementation Roadmap</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Phase 1 — Baseline (Weeks 1–2)</div>
+            <p>Instrument all input surfaces with Gate 1 + Gate 2. Deploy single Tier 2 provider (Mistral Small) as universal Gate 3. Establish Layer 5 audit logging and baseline metrics. Run in <strong>shadow mode</strong> (log-only, no blocking) for 2 weeks.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Phase 2 — Tiering (Weeks 3–4)</div>
+            <p>Classify all Intent Contracts by <code>risk.tier</code>. Configure <code>GATE3_PROVIDERS</code> routing matrix. Implement two-stage escalation (Mistral → Claude). Enable blocking for <code>high</code> and <code>critical</code> contracts.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Phase 3 — M2M Optimization (Weeks 5–6)</div>
+            <p>Identify high-volume M2M contracts (telemetry, sync, batch). Deploy Tier 5 classifier for <code>low</code> and <code>medium</code> risk M2M surfaces. Implement hybrid chaining with confidence thresholds. Evaluate async deferral for truly non-critical paths.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Phase 4 — Hardening (Weeks 7–8)</div>
+            <p>Activate HITL quorum for all <code>flag</code> verdicts. Enable nightly drift detection across all provider tiers. Tune per-contract <code>llm_confidence_threshold</code> based on shadow-mode data. Document SLA: Critical/High = 30min HITL, Medium = 4hr, Low = auto-approve 24h.</p>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <h2>Metrics &amp; Observability</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Metric</th><th>Target</th><th>Alert Threshold</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Gate 3 p50 latency</td><td>&lt; 1000ms (human) / &lt; 50ms (M2M Tier 5)</td><td>&gt; 1500ms human / &gt; 100ms M2M</td></tr>
+          <tr><td>Gate 3 p99 latency</td><td>&lt; 2500ms</td><td>&gt; 3000ms</td></tr>
+          <tr><td>Gate 3 cost per 1K requests</td><td>Contract-dependent; track per tier</td><td>&gt; 20% budget variance</td></tr>
+          <tr><td>Classifier → LLM escalation rate</td><td>5–15%</td><td>&gt; 25% (classifier may need retraining)</td></tr>
+          <tr><td>Flag rate (legitimate traffic)</td><td>&lt; 5%</td><td>&gt; 10% (threshold too tight or boundary too vague)</td></tr>
+          <tr><td>Post-hoc block rate (async)</td><td>&lt; 0.1%</td><td>&gt; 1% (async pattern may be inappropriate)</td></tr>
+          <tr><td>Drift detection delta</td><td>&lt; 5% verdict shift vs. baseline</td><td>&gt; 5% (model version or provider behavior changed)</td></tr>
+          <tr><td>HITL review SLA compliance</td><td>Critical: 30min, High: 4hr, Low: 24hr</td><td>Breach triggers page</td></tr>
+        </tbody>
+      </table>
+      <div class="divider"></div>
+      <h2>References</h2>
+      <ul>
+        <li><strong>ZTIF v2.0 Specification:</strong> <a href="https://github.com/chrisgillham/ZTIF" style="color:var(--teal)">github.com/chrisgillham/ZTIF</a></li>
+        <li><strong>NIST SP 800-228-upd1:</strong> Guidelines for API Protection for Cloud-Native Systems (March 2026)</li>
+        <li><strong>NIST SP 800-207:</strong> Zero Trust Architecture (2020)</li>
+        <li><strong>OWASP LLM Top 10 2025:</strong> Prompt Injection (LLM01), Excessive Agency (LLM08), Overreliance (LLM09)</li>
+        <li><strong>CSA Agentic Trust Framework:</strong> Tier 3 Maturity — Human Approval as Required Component (2026)</li>
+        <li><strong>Cisco Zero Trust for Agentic AI:</strong> Semantic Inspection for Intent Verification (Feb 2026)</li>
+        <li><strong>Peyrano, I. (2026):</strong> <em>From CRUD to Autonomous Agents</em> — OPA as "missing guardrail for AI agents"</li>
+      </ul>
+      <div class="divider"></div>
+      <h2>Document Control</h2>
+      <table class="data-table">
+        <thead>
+          <tr><th>Version</th><th>Date</th><th>Author</th><th>Changes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>0.1</td><td>2026-05-26</td><td>Security Architecture Synthesis</td><td>Initial pattern draft based on ZTIF v2.0 analysis</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-ok" style="margin-top:24px;">
+        <div class="callout-label">START</div>
+        <div class="callout-body">
+          <strong>Get Started:</strong> The complete framework — four-gate pipeline, Intent Contract YAML schema, OPA Gate 2 Rego policies, multi-provider <code>llm_complete()</code> implementations, and GitHub Actions CI/CD workflows are engineered for drop-in deployment into your production repositories. Questions, challenges, and counterarguments are welcome.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+function show(sectionId) {
+  const sections = document.querySelectorAll('.section');
+  sections.forEach(s => s.classList.remove('active'));
+  const target = document.getElementById('s-' + sectionId);
+  if (target) { target.classList.add('active'); }
+  const links = document.querySelectorAll('.nav-link');
+  links.forEach(l => l.classList.remove('active'));
+  const activeLink = document.getElementById('link-' + sectionId);
+  if (activeLink) { activeLink.classList.add('active'); }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function switchTab(event, paneId) {
+  const tabGroup = event.target.closest('.tab-group');
+  const buttons = tabGroup.querySelectorAll('.tab-btn');
+  buttons.forEach(b => b.classList.remove('active'));
+  const panes = tabGroup.querySelectorAll('.tab-pane');
+  panes.forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  const activePane = tabGroup.querySelector('#pane-' + paneId);
+  if (activePane) { activePane.classList.add('active'); }
+}
+
+function copyCode(buttonElement) {
+  const preBlock = buttonElement.closest('.code-block').querySelector('pre');
+  if (preBlock) {
+    const textContent = preBlock.innerText;
+    navigator.clipboard.writeText(textContent).then(() => {
+      const originalText = buttonElement.innerText;
+      buttonElement.innerText = "Copied!";
+      setTimeout(() => { buttonElement.innerText = originalText; }, 2000);
+    }).catch(err => { console.error('Failed to copy text: ', err); });
+  }
+}
+</script>
+</body>
+</html>
